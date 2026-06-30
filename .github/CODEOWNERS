@@ -1,0 +1,8 @@
+# CODEOWNERS for Cooperative Savings & Loan Platform
+# Place at .github/CODEOWNERS
+#
+# Single reviewer for the whole repo: every PR, regardless of which
+# module/path it touches, auto-requests review from the project lead.
+# Replace @oluwatimilehin-github with the actual GitHub username.
+
+*   @oluwatimilehin-github
