@@ -122,12 +122,6 @@
             <artifactId>spring-modulith-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>3.0.3</version>
-            <scope>compile</scope>
-        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
