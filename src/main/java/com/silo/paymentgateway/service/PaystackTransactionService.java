@@ -49,7 +49,7 @@ public class PaystackTransactionService {
 
     /** Marks a transaction as fully processed once its ContributionMadeEvent has been published. */
     @Transactional
-    public void markProcessed(Long transactionId) {
+    public void markProcessed(UUID transactionId) {
         repository.findById(transactionId).ifPresent(transaction -> {
             transaction.setStatus(PaystackTransactionStatus.PROCESSED);
             transaction.setProcessedAt(Instant.now());
@@ -58,7 +58,7 @@ public class PaystackTransactionService {
 
     /** Marks a transaction as failed - Paystack reported it as unsuccessful. */
     @Transactional
-    public void markFailed(Long transactionId) {
+    public void markFailed(UUID transactionId) {
         repository.findById(transactionId)
                 .ifPresent(transaction -> transaction.setStatus(PaystackTransactionStatus.FAILED));
     }
