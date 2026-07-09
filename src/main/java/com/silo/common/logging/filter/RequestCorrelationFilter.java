@@ -23,13 +23,14 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        String correlationId = UUID.randomUUID().toString();
-        if (correlationId == null || correlationId.isBlank()) {
-            correlationId = UUID.randomUUID().toString();
-        }
-
+        String incoming = request.getHeader(HEADER_NAME);
+        String correlationId = (incoming != null && !incoming.isBlank())
+                ? incoming
+                : UUID.randomUUID().toString();
 
         MDC.put(CORRELATION_ID, correlationId);
+        response.setHeader(HEADER_NAME, correlationId);
+
 
         try {
             filterChain.doFilter(request, response);
