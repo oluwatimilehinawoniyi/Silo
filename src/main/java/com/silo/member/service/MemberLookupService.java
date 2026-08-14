@@ -2,6 +2,9 @@ package com.silo.member.service;
 
 import com.silo.member.MemberLookup;
 import com.silo.member.MemberSummary;
+import com.silo.member.entity.Member;
+import com.silo.member.enums.KYCStatus;
+import com.silo.member.enums.MemberStatus;
 import com.silo.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,8 +24,20 @@ class MemberLookupService implements MemberLookup {
     }
 
     @Override
+    public boolean isActiveAndVerified(UUID memberId) {
+        return memberRepository.findById(memberId)
+                .map(this::isActiveAndVerified)
+                .orElse(false);
+    }
+
+    @Override
     public Optional<MemberSummary> findByEmail(String email) {
         return memberRepository.findByEmail(email)
                 .map(member -> new MemberSummary(member.getId(), member.getEmail()));
+    }
+
+    private boolean isActiveAndVerified(Member member) {
+        return member.getStatus() == MemberStatus.ACTIVE
+                && member.getKycStatus() == KYCStatus.VERIFIED;
     }
 }
