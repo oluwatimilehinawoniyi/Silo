@@ -10,5 +10,7 @@ public interface CredentialRepository extends JpaRepository<Credential, UUID> {
 
     Optional<Credential> findByMemberId(UUID memberId);
 
+    Optional<Credential> findByRefreshTokenHash(String refreshTokenHash);
+
     boolean existsByMemberId(UUID memberId);
 }

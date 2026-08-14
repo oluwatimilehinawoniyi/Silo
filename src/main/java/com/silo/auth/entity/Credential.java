@@ -41,6 +41,11 @@ public class Credential {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    @Column(unique = true)
+    private String refreshTokenHash;
+
+    private LocalDateTime refreshTokenExpiresAt;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -2,6 +2,7 @@ package com.silo.auth.service;
 
 import com.silo.auth.dto.LoginRequest;
 import com.silo.auth.dto.LoginResponse;
+import com.silo.auth.dto.RefreshRequest;
 import com.silo.auth.dto.RegisterCredentialRequest;
 import com.silo.auth.entity.Credential;
 import com.silo.auth.entity.Role;
@@ -10,16 +11,17 @@ import com.silo.common.exception.DuplicateResourceException;
 import com.silo.common.exception.ResourceNotFoundException;
 import com.silo.member.MemberLookup;
 import com.silo.member.MemberSummary;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,7 +45,6 @@ class AuthServiceTest {
     @Mock
     private JwtService jwtService;
 
-    @InjectMocks
     private AuthService authService;
 
     private static final UUID MEMBER_ID = UUID.randomUUID();
@@ -51,9 +52,13 @@ class AuthServiceTest {
     private static final String RAW_PASSWORD = "password123";
     private static final String PASSWORD_HASH = "hashed-password";
 
+    @BeforeEach
+    void setUp() {
+        authService = new AuthService(credentialRepository, memberLookup, passwordEncoder, jwtService, 7L);
+    }
+
     @Test
-    @DisplayName(
-            "registerCredential rejects a memberId that doesn't exist")
+    @DisplayName("registerCredential rejects a memberId that doesn't exist")
     void registerCredential_throwsResourceNotFound_whenMemberDoesNotExist() {
         when(memberLookup.exists(MEMBER_ID)).thenReturn(false);
 
@@ -65,12 +70,10 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName(
-            "registerCredential rejects a member that already has credentials")
+    @DisplayName("registerCredential rejects a member that already has credentials")
     void registerCredential_throwsDuplicateResource_whenCredentialAlreadyExists() {
         when(memberLookup.exists(MEMBER_ID)).thenReturn(true);
-        when(credentialRepository.existsByMemberId(MEMBER_ID)).thenReturn(
-                true);
+        when(credentialRepository.existsByMemberId(MEMBER_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> authService.registerCredential(
                 new RegisterCredentialRequest(MEMBER_ID, RAW_PASSWORD)))
@@ -80,20 +83,15 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName(
-            "registerCredential hashes the password and saves a MEMBER-role credential")
+    @DisplayName("registerCredential hashes the password and saves a MEMBER-role credential")
     void registerCredential_savesHashedCredential_whenMemberExistsAndHasNoCredential() {
         when(memberLookup.exists(MEMBER_ID)).thenReturn(true);
-        when(credentialRepository.existsByMemberId(MEMBER_ID)).thenReturn(
-                false);
-        when(passwordEncoder.encode(RAW_PASSWORD)).thenReturn(
-                PASSWORD_HASH);
+        when(credentialRepository.existsByMemberId(MEMBER_ID)).thenReturn(false);
+        when(passwordEncoder.encode(RAW_PASSWORD)).thenReturn(PASSWORD_HASH);
 
-        authService.registerCredential(
-                new RegisterCredentialRequest(MEMBER_ID, RAW_PASSWORD));
+        authService.registerCredential(new RegisterCredentialRequest(MEMBER_ID, RAW_PASSWORD));
 
-        ArgumentCaptor<Credential> captor =
-                ArgumentCaptor.forClass(Credential.class);
+        ArgumentCaptor<Credential> captor = ArgumentCaptor.forClass(Credential.class);
         verify(credentialRepository).save(captor.capture());
 
         Credential saved = captor.getValue();
@@ -107,21 +105,17 @@ class AuthServiceTest {
     void login_throwsBadCredentials_whenEmailNotFound() {
         when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login(
-                new LoginRequest(EMAIL, RAW_PASSWORD)))
+        assertThatThrownBy(() -> authService.login(new LoginRequest(EMAIL, RAW_PASSWORD)))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test
     @DisplayName("login rejects a member with no registered credentials")
     void login_throwsBadCredentials_whenCredentialNotFound() {
-        when(memberLookup.findByEmail(EMAIL)).thenReturn(
-                Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
-        when(credentialRepository.findByMemberId(MEMBER_ID)).thenReturn(
-                Optional.empty());
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
+        when(credentialRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login(
-                new LoginRequest(EMAIL, RAW_PASSWORD)))
+        assertThatThrownBy(() -> authService.login(new LoginRequest(EMAIL, RAW_PASSWORD)))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
@@ -133,41 +127,80 @@ class AuthServiceTest {
                 .passwordHash(PASSWORD_HASH)
                 .role(Role.MEMBER)
                 .build();
-        when(memberLookup.findByEmail(EMAIL)).thenReturn(
-                Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
-        when(credentialRepository.findByMemberId(MEMBER_ID)).thenReturn(
-                Optional.of(credential));
-        when(passwordEncoder.matches(RAW_PASSWORD,
-                PASSWORD_HASH)).thenReturn(false);
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
+        when(credentialRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(credential));
+        when(passwordEncoder.matches(RAW_PASSWORD, PASSWORD_HASH)).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.login(
-                new LoginRequest(EMAIL, RAW_PASSWORD)))
+        assertThatThrownBy(() -> authService.login(new LoginRequest(EMAIL, RAW_PASSWORD)))
                 .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test
-    @DisplayName(
-            "login returns a token and role when credentials are correct")
-    void login_returnsToken_whenCredentialsAreCorrect() {
+    @DisplayName("login returns an access token, refresh token and role when credentials are correct")
+    void login_returnsTokens_whenCredentialsAreCorrect() {
         Credential credential = Credential.builder()
                 .memberId(MEMBER_ID)
                 .passwordHash(PASSWORD_HASH)
                 .role(Role.OFFICER)
                 .build();
-        when(memberLookup.findByEmail(EMAIL)).thenReturn(
-                Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
-        when(credentialRepository.findByMemberId(MEMBER_ID)).thenReturn(
-                Optional.of(credential));
-        when(passwordEncoder.matches(RAW_PASSWORD,
-                PASSWORD_HASH)).thenReturn(true);
-        when(jwtService.generateToken(MEMBER_ID, "OFFICER")).thenReturn(
-                "signed-jwt");
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
+        when(credentialRepository.findByMemberId(MEMBER_ID)).thenReturn(Optional.of(credential));
+        when(passwordEncoder.matches(RAW_PASSWORD, PASSWORD_HASH)).thenReturn(true);
+        when(jwtService.generateToken(MEMBER_ID, "OFFICER")).thenReturn("signed-jwt");
 
-        LoginResponse response =
-                authService.login(new LoginRequest(EMAIL, RAW_PASSWORD));
+        LoginResponse response = authService.login(new LoginRequest(EMAIL, RAW_PASSWORD));
 
-        assertThat(response.token()).isEqualTo("signed-jwt");
+        assertThat(response.accessToken()).isEqualTo("signed-jwt");
+        assertThat(response.refreshToken()).isNotBlank();
         assertThat(response.memberId()).isEqualTo(MEMBER_ID);
         assertThat(response.role()).isEqualTo("OFFICER");
+        assertThat(credential.getRefreshTokenHash()).isNotBlank();
+        assertThat(credential.getRefreshTokenExpiresAt()).isAfter(LocalDateTime.now());
+    }
+
+    @Test
+    @DisplayName("refresh rejects a token that doesn't match any stored hash")
+    void refresh_throwsBadCredentials_whenTokenUnknown() {
+        when(credentialRepository.findByRefreshTokenHash(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshRequest("unknown-token")))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    @DisplayName("refresh rejects an expired token")
+    void refresh_throwsBadCredentials_whenTokenExpired() {
+        Credential credential = Credential.builder()
+                .memberId(MEMBER_ID)
+                .passwordHash(PASSWORD_HASH)
+                .role(Role.MEMBER)
+                .refreshTokenHash("hash")
+                .refreshTokenExpiresAt(LocalDateTime.now().minusDays(1))
+                .build();
+        when(credentialRepository.findByRefreshTokenHash(any())).thenReturn(Optional.of(credential));
+
+        assertThatThrownBy(() -> authService.refresh(new RefreshRequest("expired-token")))
+                .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    @DisplayName("refresh rotates the token: old hash stops matching, a new pair is issued")
+    void refresh_rotatesToken_whenValid() {
+        Credential credential = Credential.builder()
+                .memberId(MEMBER_ID)
+                .passwordHash(PASSWORD_HASH)
+                .role(Role.MEMBER)
+                .refreshTokenHash("old-hash")
+                .refreshTokenExpiresAt(LocalDateTime.now().plusDays(1))
+                .build();
+        when(credentialRepository.findByRefreshTokenHash(any())).thenReturn(Optional.of(credential));
+        when(jwtService.generateToken(MEMBER_ID, "MEMBER")).thenReturn("new-jwt");
+
+        LoginResponse response = authService.refresh(new RefreshRequest("valid-token"));
+
+        assertThat(response.accessToken()).isEqualTo("new-jwt");
+        assertThat(response.refreshToken()).isNotBlank();
+        assertThat(credential.getRefreshTokenHash()).isNotEqualTo("old-hash");
+        verify(credentialRepository).save(credential);
     }
 }

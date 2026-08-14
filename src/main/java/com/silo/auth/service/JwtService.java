@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -14,14 +15,22 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
+    private static final int MIN_SECRET_BYTES = 32;
+
     private final SecretKey key;
     private final long expirationMinutes;
 
     public JwtService(
             @Value("${silo.jwt.secret}") String secret,
-            @Value("${silo.jwt.expiration-minutes:60}")
+            @Value("${silo.jwt.expiration-minutes:15}")
             long expirationMinutes) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "silo.jwt.secret must be at least 256 bits (32 bytes) for HS256, got "
+                            + secretBytes.length * 8 + " bits");
+        }
+        this.key = Keys.hmacShaKeyFor(secretBytes);
         this.expirationMinutes = expirationMinutes;
     }
 
