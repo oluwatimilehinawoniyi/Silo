@@ -1,7 +1,6 @@
 package com.silo.loan.entity;
 
 import com.silo.loan.enums.LoanStatus;
-import com.silo.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Data;
@@ -23,9 +22,8 @@ public class Loan {
     @Column(nullable = false, unique = true)
     private UUID loanRequestId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    @Column(nullable = false)
+    private UUID memberId;
 
     @Column(nullable = false)
     private BigDecimal principalAmount;
