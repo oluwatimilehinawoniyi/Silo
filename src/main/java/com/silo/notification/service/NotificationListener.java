@@ -1,0 +1,71 @@
+package com.silo.notification.service;
+
+import com.silo.loan.event.GuarantorInvitedEvent;
+import com.silo.loan.event.GuarantorLiabilityAllocation;
+import com.silo.loan.event.LoanApprovedEvent;
+import com.silo.loan.event.LoanDefaultedEvent;
+import com.silo.repayment.event.RepaymentMadeEvent;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
+
+@Component
+@RequiredArgsConstructor
+public class NotificationListener {
+
+    private final NotificationService notificationService;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onLoanApproved(LoanApprovedEvent event) {
+        notificationService.notify(
+                event.getMemberId(),
+                LoanApprovedEvent.class.getSimpleName(),
+                "Your loan has been approved",
+                "Loan " + event.getLoanId() + " for " + event.getPrincipalAmount() + " has been approved and disbursed.");
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onGuarantorInvited(GuarantorInvitedEvent event) {
+        notificationService.notify(
+                event.getGuarantorMemberId(),
+                GuarantorInvitedEvent.class.getSimpleName(),
+                "You've been invited to guarantee a loan",
+                "You've been asked to guarantee loan request " + event.getLoanRequestId() + ".");
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onRepaymentMade(RepaymentMadeEvent event) {
+        String subject = event.isLiabilityPayment() ? "Guarantor liability repayment received" : "Repayment received";
+        notificationService.notify(
+                event.getPayerMemberId(),
+                RepaymentMadeEvent.class.getSimpleName(),
+                subject,
+                "We've received a repayment of " + event.getAmount() + " for loan " + event.getLoanId() + ".");
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onLoanDefaulted(LoanDefaultedEvent event) {
+        notificationService.notify(
+                event.getMemberId(),
+                LoanDefaultedEvent.class.getSimpleName(),
+                "Your loan has defaulted",
+                "Loan " + event.getLoanId() + " has defaulted with an outstanding balance of "
+                        + event.getOutstandingBalance() + ".");
+
+        for (GuarantorLiabilityAllocation allocation : event.getGuarantorLiabilityAllocations()) {
+            notificationService.notify(
+                    allocation.getGuarantorMemberId(),
+                    LoanDefaultedEvent.class.getSimpleName(),
+                    "You've been assigned a guarantor liability",
+                    "Loan " + event.getLoanId() + " defaulted; you've been assigned a liability of "
+                            + allocation.getAmount() + ".");
+        }
+    }
+}
