@@ -26,7 +26,8 @@ public class OutboxDispatcher {
         this.processor = processor;
     }
 
-    @Scheduled(fixedDelayString = "${silo.outbox.poll-interval-ms:5000}")
+    @Scheduled(fixedDelayString = "${silo.outbox.poll-interval-ms:5000}",
+            initialDelayString = "${silo.outbox.poll-initial-delay-ms:0}")
     public void pollAndDispatch() {
         Page<OutboxEvent> pending = repository.findByStatusOrderByCreatedAtAsc(OutboxEventStatus.PENDING,
                 PageRequest.of(0, BATCH_SIZE));
