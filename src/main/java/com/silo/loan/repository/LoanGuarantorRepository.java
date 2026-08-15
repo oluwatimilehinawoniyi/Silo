@@ -1,6 +1,7 @@
 package com.silo.loan.repository;
 
 import com.silo.loan.entity.LoanGuarantor;
+import com.silo.loan.enums.GuarantorStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +14,6 @@ public interface LoanGuarantorRepository extends JpaRepository<LoanGuarantor, UU
     boolean existsByLoanRequestIdAndMemberId(UUID loanRequestId, UUID memberId);
 
     List<LoanGuarantor> findByLoanRequestId(UUID loanRequestId);
+
+    long countByMemberIdAndStatus(UUID memberId, GuarantorStatus status);
 }
