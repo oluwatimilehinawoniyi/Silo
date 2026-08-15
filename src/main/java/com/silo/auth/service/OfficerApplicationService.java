@@ -1,0 +1,128 @@
+package com.silo.auth.service;
+
+import com.silo.auth.dto.OfficerApplicationResponse;
+import com.silo.auth.entity.Credential;
+import com.silo.auth.entity.OfficerApplication;
+import com.silo.auth.entity.OfficerApplicationApproval;
+import com.silo.auth.entity.OfficerApplicationStatus;
+import com.silo.auth.entity.Role;
+import com.silo.auth.event.OfficerApplicationSubmittedEvent;
+import com.silo.auth.repository.CredentialRepository;
+import com.silo.auth.repository.OfficerApplicationApprovalRepository;
+import com.silo.auth.repository.OfficerApplicationRepository;
+import com.silo.common.exception.BusinessRuleViolationException;
+import com.silo.common.exception.DuplicateResourceException;
+import com.silo.common.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class OfficerApplicationService {
+
+    private static final int APPROVALS_REQUIRED = 2;
+
+    private final OfficerApplicationRepository officerApplicationRepository;
+    private final OfficerApplicationApprovalRepository approvalRepository;
+    private final CredentialRepository credentialRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Transactional
+    public OfficerApplicationResponse apply(UUID memberId) {
+        Credential credential = credentialRepository.findByMemberId(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("No credentials registered for this member"));
+
+        if (credential.getRole() == Role.OFFICER) {
+            throw new BusinessRuleViolationException("This member is already an officer");
+        }
+
+        if (officerApplicationRepository.existsByMemberIdAndStatus(memberId, OfficerApplicationStatus.PENDING)) {
+            throw new DuplicateResourceException("This member already has a pending officer application");
+        }
+
+        OfficerApplication application = officerApplicationRepository.save(OfficerApplication.builder()
+                .memberId(memberId)
+                .status(OfficerApplicationStatus.PENDING)
+                .build());
+
+        eventPublisher.publishEvent(new OfficerApplicationSubmittedEvent(application.getId(), memberId));
+
+        return toResponse(application, memberId);
+    }
+
+    @Transactional
+    public OfficerApplicationResponse approve(UUID applicationId, UUID approvingOfficerId) {
+        OfficerApplication application = requirePending(applicationId);
+
+        if (approvalRepository.existsByApplicationIdAndOfficerId(applicationId, approvingOfficerId)) {
+            throw new BusinessRuleViolationException("You have already approved this application");
+        }
+
+        approvalRepository.save(OfficerApplicationApproval.builder()
+                .applicationId(applicationId)
+                .officerId(approvingOfficerId)
+                .build());
+
+        long approvalCount = approvalRepository.countByApplicationId(applicationId);
+        if (approvalCount >= APPROVALS_REQUIRED) {
+            application.setStatus(OfficerApplicationStatus.APPROVED);
+            application.setDecidedAt(LocalDateTime.now());
+            officerApplicationRepository.save(application);
+
+            Credential credential = credentialRepository.findByMemberId(application.getMemberId())
+                    .orElseThrow(() -> new ResourceNotFoundException("No credentials registered for this member"));
+            credential.setRole(Role.OFFICER);
+            credentialRepository.save(credential);
+        }
+
+        return toResponse(application, approvingOfficerId);
+    }
+
+    @Transactional
+    public OfficerApplicationResponse reject(UUID applicationId, UUID rejectingOfficerId) {
+        OfficerApplication application = requirePending(applicationId);
+
+        application.setStatus(OfficerApplicationStatus.REJECTED);
+        application.setDecidedAt(LocalDateTime.now());
+        officerApplicationRepository.save(application);
+
+        return toResponse(application, rejectingOfficerId);
+    }
+
+    public List<OfficerApplicationResponse> listPending(UUID callerOfficerId) {
+        return officerApplicationRepository.findByStatus(OfficerApplicationStatus.PENDING).stream()
+                .map(application -> toResponse(application, callerOfficerId))
+                .toList();
+    }
+
+    public List<OfficerApplicationResponse> listMine(UUID memberId) {
+        return officerApplicationRepository.findByMemberIdOrderByCreatedAtDesc(memberId).stream()
+                .map(application -> toResponse(application, memberId))
+                .toList();
+    }
+
+    private OfficerApplication requirePending(UUID applicationId) {
+        OfficerApplication application = officerApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Officer application not found with id " + applicationId));
+
+        if (application.getStatus() != OfficerApplicationStatus.PENDING) {
+            throw new BusinessRuleViolationException("This officer application has already been decided");
+        }
+
+        return application;
+    }
+
+    private OfficerApplicationResponse toResponse(OfficerApplication application, UUID callerId) {
+        int approvalCount = (int) approvalRepository.countByApplicationId(application.getId());
+        boolean approvedByCaller = approvalRepository.existsByApplicationIdAndOfficerId(application.getId(), callerId);
+        return new OfficerApplicationResponse(
+                application.getId(), application.getMemberId(), application.getStatus(),
+                approvalCount, approvedByCaller, application.getCreatedAt(), application.getDecidedAt());
+    }
+}
