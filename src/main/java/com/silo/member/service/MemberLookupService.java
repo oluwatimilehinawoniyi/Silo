@@ -38,6 +38,12 @@ class MemberLookupService implements MemberLookup {
     }
 
     @Override
+    public Optional<MemberSummary> findById(UUID memberId) {
+        return memberRepository.findById(memberId)
+                .map(member -> new MemberSummary(member.getId(), member.getEmail()));
+    }
+
+    @Override
     public List<MemberSummary> findAllActiveAndVerified() {
         return memberRepository.findByStatusAndKycStatus(MemberStatus.ACTIVE, KYCStatus.VERIFIED)
                 .stream()

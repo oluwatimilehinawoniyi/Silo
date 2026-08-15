@@ -11,11 +11,8 @@ import org.springframework.retry.support.RetryTemplate;
 /**
  * Reusable retry policy for outbound calls (Paystack verification, email
  * sending) - exponential backoff with jitter so retries from many failures
- * at once don't all land on the remote service at the same moment. No
- * outbound HTTP caller exists yet (T45, T43); this is the shared policy
- * those will apply once built, either via this RetryTemplate or
- * {@code @Retryable(backoff = @Backoff(..., random = true))} now that
- * {@code @EnableRetry} is active project-wide.
+ * at once don't all land on the remote service at the same moment. Used by
+ * NotificationService today; T45's Paystack caller will apply it too.
  */
 @Configuration
 @EnableRetry

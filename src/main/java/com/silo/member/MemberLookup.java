@@ -12,5 +12,7 @@ public interface MemberLookup {
 
     Optional<MemberSummary> findByEmail(String email);
 
+    Optional<MemberSummary> findById(UUID memberId);
+
     List<MemberSummary> findAllActiveAndVerified();
 }
