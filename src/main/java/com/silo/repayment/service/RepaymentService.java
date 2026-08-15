@@ -4,6 +4,7 @@ import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.ResourceNotFoundException;
 import com.silo.loan.GuarantorLiabilityLookup;
 import com.silo.loan.LoanLookup;
+import com.silo.loan.LoanProgressionRecorder;
 import com.silo.repayment.dto.LiabilityRepaymentRequest;
 import com.silo.repayment.dto.RepaymentRequest;
 import com.silo.repayment.dto.RepaymentResponse;
@@ -26,6 +27,7 @@ public class RepaymentService {
     private final RepaymentRepository repaymentRepository;
     private final LoanLookup loanLookup;
     private final GuarantorLiabilityLookup guarantorLiabilityLookup;
+    private final LoanProgressionRecorder loanProgressionRecorder;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -39,6 +41,8 @@ public class RepaymentService {
         if (!loanLookup.belongsToMember(request.loanId(), payerMemberId)) {
             throw new AccessDeniedException("You are not the borrower on this loan");
         }
+
+        loanProgressionRecorder.applyRepayment(request.loanId(), request.amount());
 
         Repayment repayment = Repayment.builder()
                 .loanId(request.loanId())
@@ -72,6 +76,8 @@ public class RepaymentService {
         UUID loanId = guarantorLiabilityLookup.findLoanId(request.liabilityId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Guarantor liability not found with id " + request.liabilityId()));
+
+        loanProgressionRecorder.applyLiabilityRepayment(request.liabilityId(), request.amount());
 
         Repayment repayment = Repayment.builder()
                 .loanId(loanId)

@@ -4,6 +4,7 @@ import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.ResourceNotFoundException;
 import com.silo.loan.GuarantorLiabilityLookup;
 import com.silo.loan.LoanLookup;
+import com.silo.loan.LoanProgressionRecorder;
 import com.silo.repayment.dto.LiabilityRepaymentRequest;
 import com.silo.repayment.dto.RepaymentResponse;
 import com.silo.repayment.entity.Repayment;
@@ -39,6 +40,9 @@ class RepaymentServiceLiabilityTest {
 
     @Mock
     private GuarantorLiabilityLookup guarantorLiabilityLookup;
+
+    @Mock
+    private LoanProgressionRecorder loanProgressionRecorder;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;

@@ -1,5 +1,6 @@
 package com.silo.loan.service;
 
+import com.silo.loan.dto.BorrowerRiskProfileResponse;
 import com.silo.loan.entity.BorrowerRiskProfile;
 import com.silo.loan.enums.InstallmentStatus;
 import com.silo.loan.enums.LoanStatus;
@@ -62,6 +63,14 @@ public class BorrowerRiskService {
         return borrowerRiskProfileRepository.findById(memberId)
                 .map(BorrowerRiskProfile::getCurrentRiskTier)
                 .orElse(RiskTier.LOW);
+    }
+
+    public BorrowerRiskProfileResponse getProfile(UUID memberId) {
+        return borrowerRiskProfileRepository.findById(memberId)
+                .map(profile -> new BorrowerRiskProfileResponse(
+                        profile.getMemberId(), profile.getTotalLoans(), profile.getDefaultedLoans(),
+                        profile.getLateLoanPayments(), profile.getCurrentRiskTier()))
+                .orElse(new BorrowerRiskProfileResponse(memberId, 0, 0, 0, RiskTier.LOW));
     }
 
     // LoanStatus has no "resolved default" state, so a DEFAULTED loan is always an active
