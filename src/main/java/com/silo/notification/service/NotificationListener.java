@@ -1,5 +1,7 @@
 package com.silo.notification.service;
 
+import com.silo.auth.OfficerLookup;
+import com.silo.auth.event.OfficerApplicationSubmittedEvent;
 import com.silo.loan.event.GuarantorInvitedEvent;
 import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanApprovedEvent;
@@ -12,11 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.util.UUID;
+
 @Component
 @RequiredArgsConstructor
 public class NotificationListener {
 
     private final NotificationService notificationService;
+    private final OfficerLookup officerLookup;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -66,6 +71,19 @@ public class NotificationListener {
                     "You've been assigned a guarantor liability",
                     "Loan " + event.getLoanId() + " defaulted; you've been assigned a liability of "
                             + allocation.getAmount() + ".");
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onOfficerApplicationSubmitted(OfficerApplicationSubmittedEvent event) {
+        for (UUID officerId : officerLookup.findAllOfficerMemberIds()) {
+            notificationService.notify(
+                    officerId,
+                    OfficerApplicationSubmittedEvent.class.getSimpleName(),
+                    "New officer application awaiting your review",
+                    "Member " + event.getApplicantMemberId() + " has applied to become an officer. "
+                            + "Two distinct officer approvals are required.");
         }
     }
 }

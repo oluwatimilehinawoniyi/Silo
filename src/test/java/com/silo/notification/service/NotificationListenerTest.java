@@ -1,5 +1,7 @@
 package com.silo.notification.service;
 
+import com.silo.auth.OfficerLookup;
+import com.silo.auth.event.OfficerApplicationSubmittedEvent;
 import com.silo.loan.event.GuarantorInvitedEvent;
 import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanApprovedEvent;
@@ -20,12 +22,16 @@ import java.util.UUID;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationListenerTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private OfficerLookup officerLookup;
 
     @InjectMocks
     private NotificationListener listener;
@@ -76,5 +82,19 @@ class NotificationListenerTest {
 
         verify(notificationService).notify(eq(MEMBER_ID), eq("LoanDefaultedEvent"), any(), any());
         verify(notificationService).notify(eq(guarantorId), eq("LoanDefaultedEvent"), any(), any());
+    }
+
+    @Test
+    @DisplayName("onOfficerApplicationSubmitted notifies every current officer")
+    void onOfficerApplicationSubmitted_notifiesEveryOfficer() {
+        UUID officerOne = UUID.randomUUID();
+        UUID officerTwo = UUID.randomUUID();
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(officerOne, officerTwo));
+        OfficerApplicationSubmittedEvent event = new OfficerApplicationSubmittedEvent(UUID.randomUUID(), MEMBER_ID);
+
+        listener.onOfficerApplicationSubmitted(event);
+
+        verify(notificationService).notify(eq(officerOne), eq("OfficerApplicationSubmittedEvent"), any(), any());
+        verify(notificationService).notify(eq(officerTwo), eq("OfficerApplicationSubmittedEvent"), any(), any());
     }
 }
