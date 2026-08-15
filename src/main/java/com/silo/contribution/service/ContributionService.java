@@ -2,6 +2,7 @@ package com.silo.contribution.service;
 
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.ResourceNotFoundException;
+import com.silo.contribution.ContributionRecorder;
 import com.silo.contribution.dto.ContributionRequest;
 import com.silo.contribution.dto.ContributionResponse;
 import com.silo.contribution.dto.ContributionSummaryResponse;
@@ -15,12 +16,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class ContributionService {
+public class ContributionService implements ContributionRecorder {
 
     private final ContributionRepository contributionRepository;
     private final MemberLookup memberLookup;
@@ -46,6 +48,26 @@ public class ContributionService {
                 contribution.getAmount(), contribution.getSource()));
 
         return toResponse(contribution);
+    }
+
+    @Override
+    @Transactional
+    public void recordPaystackContribution(UUID memberId, BigDecimal amount, String reference) {
+        assertEligible(memberId);
+
+        Contribution contribution = Contribution.builder()
+                .memberId(memberId)
+                .amount(amount)
+                .reference(reference)
+                .source(ContributionSource.PAYSTACK)
+                .recordedBy(null)
+                .build();
+
+        contribution = contributionRepository.save(contribution);
+
+        eventPublisher.publishEvent(new ContributionMadeEvent(
+                contribution.getId(), contribution.getMemberId(),
+                contribution.getAmount(), contribution.getSource()));
     }
 
     public List<ContributionResponse> getHistory(UUID memberId) {

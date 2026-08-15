@@ -1,5 +1,8 @@
 package com.silo.paymentgateway.service;
 
+import com.silo.contribution.ContributionRecorder;
+import com.silo.member.MemberLookup;
+import com.silo.member.MemberSummary;
 import com.silo.paymentgateway.entity.PaystackTransaction;
 import com.silo.paymentgateway.entity.PaystackTransactionStatus;
 import com.silo.paymentgateway.repository.PaystackTransactionRepository;
@@ -27,12 +30,19 @@ class PaystackTransactionServiceTest {
     @Mock
     private PaystackTransactionRepository repository;
 
+    @Mock
+    private MemberLookup memberLookup;
+
+    @Mock
+    private ContributionRecorder contributionRecorder;
+
     @InjectMocks
     private PaystackTransactionService service;
 
     private static final String REFERENCE = "PAYSTACK_REF_123";
     private static final BigDecimal AMOUNT = new BigDecimal("5000.00");
     private static final UUID MEMBER_ID = UUID.randomUUID();
+    private static final String EMAIL = "member@example.com";
 
     @Test
     @DisplayName("recordIfNew saves and returns the transaction when the reference is unseen")
@@ -121,6 +131,76 @@ class PaystackTransactionServiceTest {
 
         service.markFailed(transactionId);
 
+        assertThat(transaction.getStatus()).isEqualTo(PaystackTransactionStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("processVerifiedTransaction does nothing when no member matches the customer email")
+    void processVerifiedTransaction_returnsFalse_whenMemberNotFound() {
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.empty());
+
+        boolean result = service.processVerifiedTransaction(REFERENCE, AMOUNT, EMAIL);
+
+        assertThat(result).isFalse();
+        verify(repository, never()).save(any());
+        verify(contributionRecorder, never()).recordPaystackContribution(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("processVerifiedTransaction returns false without reprocessing a duplicate reference")
+    void processVerifiedTransaction_returnsFalse_whenDuplicate() {
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
+        when(repository.existsByPaystackReference(REFERENCE)).thenReturn(true);
+
+        boolean result = service.processVerifiedTransaction(REFERENCE, AMOUNT, EMAIL);
+
+        assertThat(result).isFalse();
+        verify(contributionRecorder, never()).recordPaystackContribution(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("processVerifiedTransaction records the contribution and marks the transaction PROCESSED")
+    void processVerifiedTransaction_recordsContributionAndMarksProcessed_whenNewAndValid() {
+        UUID transactionId = UUID.randomUUID();
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
+        when(repository.existsByPaystackReference(REFERENCE)).thenReturn(false);
+        when(repository.save(any(PaystackTransaction.class))).thenAnswer(invocation -> {
+            PaystackTransaction saved = invocation.getArgument(0);
+            saved.setId(transactionId);
+            return saved;
+        });
+        when(repository.findById(transactionId)).thenReturn(Optional.of(PaystackTransaction.builder()
+                .id(transactionId).paystackReference(REFERENCE).amount(AMOUNT).memberId(MEMBER_ID)
+                .status(PaystackTransactionStatus.RECEIVED).build()));
+
+        boolean result = service.processVerifiedTransaction(REFERENCE, AMOUNT, EMAIL);
+
+        assertThat(result).isTrue();
+        verify(contributionRecorder).recordPaystackContribution(MEMBER_ID, AMOUNT, REFERENCE);
+        verify(repository, atLeastOnce()).findById(transactionId);
+    }
+
+    @Test
+    @DisplayName("processVerifiedTransaction marks the transaction FAILED when recording the contribution throws")
+    void processVerifiedTransaction_marksFailed_whenContributionRecordingThrows() {
+        UUID transactionId = UUID.randomUUID();
+        when(memberLookup.findByEmail(EMAIL)).thenReturn(Optional.of(new MemberSummary(MEMBER_ID, EMAIL)));
+        when(repository.existsByPaystackReference(REFERENCE)).thenReturn(false);
+        when(repository.save(any(PaystackTransaction.class))).thenAnswer(invocation -> {
+            PaystackTransaction saved = invocation.getArgument(0);
+            saved.setId(transactionId);
+            return saved;
+        });
+        PaystackTransaction transaction = PaystackTransaction.builder()
+                .id(transactionId).paystackReference(REFERENCE).amount(AMOUNT).memberId(MEMBER_ID)
+                .status(PaystackTransactionStatus.RECEIVED).build();
+        when(repository.findById(transactionId)).thenReturn(Optional.of(transaction));
+        doThrow(new RuntimeException("member became ineligible"))
+                .when(contributionRecorder).recordPaystackContribution(MEMBER_ID, AMOUNT, REFERENCE);
+
+        boolean result = service.processVerifiedTransaction(REFERENCE, AMOUNT, EMAIL);
+
+        assertThat(result).isFalse();
         assertThat(transaction.getStatus()).isEqualTo(PaystackTransactionStatus.FAILED);
     }
 }
