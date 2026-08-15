@@ -68,7 +68,11 @@ public class MemberService {
 
     public MemberResponse updateStatus(
             UUID id,
-            MemberStatusUpdateRequest request) {
+            MemberStatusUpdateRequest request,
+            UUID actingOfficerId) {
+        if (id.equals(actingOfficerId)) {
+            throw new BusinessRuleViolationException("An officer cannot change their own status");
+        }
         Member member = findMemberOrThrow(id);
 
         member.setStatus(request.status());
@@ -79,7 +83,11 @@ public class MemberService {
 
     public MemberResponse updateKycStatus(
             UUID id,
-            MemberKycUpdateRequest request) {
+            MemberKycUpdateRequest request,
+            UUID actingOfficerId) {
+        if (id.equals(actingOfficerId)) {
+            throw new BusinessRuleViolationException("An officer cannot change their own KYC status");
+        }
         Member member = findMemberOrThrow(id);
 
         if (request.kycStatus() == KYCStatus.PENDING) {

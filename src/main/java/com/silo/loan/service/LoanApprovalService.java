@@ -37,8 +37,12 @@ public class LoanApprovalService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public LoanResponse approve(UUID loanRequestId, LoanApprovalRequest request) {
+    public LoanResponse approve(UUID loanRequestId, LoanApprovalRequest request, UUID approvingOfficerId) {
         LoanRequest loanRequest = requirePendingRequest(loanRequestId);
+
+        if (loanRequest.getMemberId().equals(approvingOfficerId)) {
+            throw new BusinessRuleViolationException("An officer cannot approve their own loan request");
+        }
 
         List<LoanGuarantor> acceptedGuarantors =
                 loanGuarantorRepository.findByLoanRequestIdAndStatus(loanRequestId, GuarantorStatus.ACCEPTED);
@@ -88,8 +92,12 @@ public class LoanApprovalService {
     }
 
     @Transactional
-    public LoanRequestResponse reject(UUID loanRequestId) {
+    public LoanRequestResponse reject(UUID loanRequestId, UUID rejectingOfficerId) {
         LoanRequest loanRequest = requirePendingRequest(loanRequestId);
+
+        if (loanRequest.getMemberId().equals(rejectingOfficerId)) {
+            throw new BusinessRuleViolationException("An officer cannot reject their own loan request");
+        }
 
         loanRequest.setStatus(LoanRequestStatus.REJECTED);
         loanRequest = loanRequestRepository.save(loanRequest);
