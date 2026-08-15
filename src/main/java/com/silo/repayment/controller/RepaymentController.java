@@ -1,6 +1,7 @@
 package com.silo.repayment.controller;
 
 import com.silo.common.response.ApiResponse;
+import com.silo.repayment.dto.LiabilityRepaymentRequest;
 import com.silo.repayment.dto.RepaymentRequest;
 import com.silo.repayment.dto.RepaymentResponse;
 import com.silo.repayment.service.RepaymentService;
@@ -39,6 +40,18 @@ public class RepaymentController {
         UUID payerMemberId = UUID.fromString(authentication.getName());
         RepaymentResponse response = repaymentService.recordBorrowerRepayment(payerMemberId, request);
         return ResponseEntity.ok(ApiResponse.success("Repayment recorded successfully", response));
+    }
+
+    @PostMapping("/liability")
+    @Operation(
+            summary = "Record a guarantor liability repayment",
+            description = "Liability must be PENDING; only the assigned guarantor can pay it down.")
+    public ResponseEntity<ApiResponse<RepaymentResponse>> recordLiabilityRepayment(
+            @Valid @RequestBody LiabilityRepaymentRequest request,
+            Authentication authentication) {
+        UUID payerMemberId = UUID.fromString(authentication.getName());
+        RepaymentResponse response = repaymentService.recordLiabilityRepayment(payerMemberId, request);
+        return ResponseEntity.ok(ApiResponse.success("Liability repayment recorded successfully", response));
     }
 
     @GetMapping("/loan/{loanId}")
