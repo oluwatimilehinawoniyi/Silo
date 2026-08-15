@@ -14,8 +14,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.mockito.ArgumentCaptor;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,5 +97,38 @@ class GuarantorCredibilityServiceTest {
         when(guarantorCredibilityProfileRepository.findById(MEMBER_ID)).thenReturn(Optional.of(lowScore));
 
         assertThat(service.meetsMinimumCredibility(MEMBER_ID)).isFalse();
+    }
+
+    @Test
+    @DisplayName("recordLoanWentBad increments loansWentBad and lowers the score on an existing profile")
+    void recordLoanWentBad_incrementsAndLowersScore_onExistingProfile() {
+        GuarantorCredibilityProfile existing = GuarantorCredibilityProfile.builder()
+                .memberId(MEMBER_ID).timesGuaranteed(2).loansWentBad(0).credibilityScore(100).build();
+        when(guarantorCredibilityProfileRepository.findById(MEMBER_ID)).thenReturn(Optional.of(existing));
+        when(guarantorCredibilityProfileRepository.save(any(GuarantorCredibilityProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.recordLoanWentBad(MEMBER_ID);
+
+        ArgumentCaptor<GuarantorCredibilityProfile> captor = ArgumentCaptor.forClass(GuarantorCredibilityProfile.class);
+        verify(guarantorCredibilityProfileRepository).save(captor.capture());
+        assertThat(captor.getValue().getLoansWentBad()).isEqualTo(1);
+        assertThat(captor.getValue().getCredibilityScore()).isEqualTo(70);
+    }
+
+    @Test
+    @DisplayName("recordLoanWentBad creates a fresh profile for a guarantor with no prior history")
+    void recordLoanWentBad_createsProfile_whenNoneExists() {
+        when(guarantorCredibilityProfileRepository.findById(MEMBER_ID)).thenReturn(Optional.empty());
+        when(loanGuarantorRepository.countByMemberIdAndStatus(MEMBER_ID, GuarantorStatus.ACCEPTED)).thenReturn(1L);
+        when(guarantorCredibilityProfileRepository.save(any(GuarantorCredibilityProfile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.recordLoanWentBad(MEMBER_ID);
+
+        ArgumentCaptor<GuarantorCredibilityProfile> captor = ArgumentCaptor.forClass(GuarantorCredibilityProfile.class);
+        verify(guarantorCredibilityProfileRepository).save(captor.capture());
+        assertThat(captor.getValue().getLoansWentBad()).isEqualTo(1);
+        assertThat(captor.getValue().getCredibilityScore()).isEqualTo(70);
     }
 }
