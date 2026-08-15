@@ -155,6 +155,22 @@ class LoanApprovalServiceTest {
     }
 
     @Test
+    @DisplayName("approve rejects a borrower who already has an active loan")
+    void approve_throwsBusinessRuleViolation_whenBorrowerHasActiveLoan() {
+        when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(pendingRequest()));
+        when(loanGuarantorRepository.findByLoanRequestIdAndStatus(LOAN_REQUEST_ID, GuarantorStatus.ACCEPTED))
+                .thenReturn(List.of(acceptedGuarantor()));
+        when(borrowerRiskService.hasActiveDefault(BORROWER_ID)).thenReturn(false);
+        when(loanRepository.existsByMemberIdAndStatus(BORROWER_ID, LoanStatus.ACTIVE)).thenReturn(true);
+
+        assertThatThrownBy(() -> loanApprovalService.approve(
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                .isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(loanRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("approve creates the Loan, generates the schedule, marks the request APPROVED, and publishes LoanApprovedEvent")
     void approve_createsLoan_whenAllGatesPass() {
         when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(pendingRequest()));

@@ -42,6 +42,10 @@ public class GuarantorLiability {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private BigDecimal amountPaid = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private LiabilityStatus status;

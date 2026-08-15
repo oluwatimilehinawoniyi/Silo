@@ -52,6 +52,11 @@ public class LoanApprovalService {
                     "Borrower has an active default and cannot be approved for a new loan");
         }
 
+        if (loanRepository.existsByMemberIdAndStatus(loanRequest.getMemberId(), LoanStatus.ACTIVE)) {
+            throw new BusinessRuleViolationException(
+                    "Borrower already has an active loan and cannot be approved for another");
+        }
+
         for (LoanGuarantor guarantor : acceptedGuarantors) {
             if (!guarantorCredibilityService.meetsMinimumCredibility(guarantor.getMemberId())) {
                 throw new BusinessRuleViolationException(

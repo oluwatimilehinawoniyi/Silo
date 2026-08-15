@@ -36,6 +36,10 @@ public class LoanInstallment {
     @Column(nullable = false)
     private BigDecimal expectedAmount;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private BigDecimal amountPaid = BigDecimal.ZERO;
+
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private InstallmentStatus status;

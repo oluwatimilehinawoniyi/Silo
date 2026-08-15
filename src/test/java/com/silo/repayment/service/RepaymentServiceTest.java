@@ -3,6 +3,7 @@ package com.silo.repayment.service;
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.ResourceNotFoundException;
 import com.silo.loan.LoanLookup;
+import com.silo.loan.LoanProgressionRecorder;
 import com.silo.repayment.dto.RepaymentRequest;
 import com.silo.repayment.dto.RepaymentResponse;
 import com.silo.repayment.entity.Repayment;
@@ -35,6 +36,9 @@ class RepaymentServiceTest {
 
     @Mock
     private LoanLookup loanLookup;
+
+    @Mock
+    private LoanProgressionRecorder loanProgressionRecorder;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;

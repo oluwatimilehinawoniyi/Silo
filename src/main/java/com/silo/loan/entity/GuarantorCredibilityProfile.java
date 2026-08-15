@@ -33,6 +33,9 @@ public class GuarantorCredibilityProfile {
     private int loansWentBad;
 
     @Column(nullable = false)
+    private int successfulGuarantees;
+
+    @Column(nullable = false)
     private int credibilityScore;
 
     @UpdateTimestamp
