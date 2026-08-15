@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and OutboxDispatcher's poll only ever redelivers rows a crash left stuck
  * as PENDING.
  */
-@SpringBootTest
+@SpringBootTest(properties = "silo.outbox.poll-interval-ms=600000")
 @Testcontainers
 class OutboxIntegrationTest {
 
