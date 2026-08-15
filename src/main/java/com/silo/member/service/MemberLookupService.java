@@ -9,6 +9,7 @@ import com.silo.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,14 @@ class MemberLookupService implements MemberLookup {
     public Optional<MemberSummary> findByEmail(String email) {
         return memberRepository.findByEmail(email)
                 .map(member -> new MemberSummary(member.getId(), member.getEmail()));
+    }
+
+    @Override
+    public List<MemberSummary> findAllActiveAndVerified() {
+        return memberRepository.findByStatusAndKycStatus(MemberStatus.ACTIVE, KYCStatus.VERIFIED)
+                .stream()
+                .map(member -> new MemberSummary(member.getId(), member.getEmail()))
+                .toList();
     }
 
     private boolean isActiveAndVerified(Member member) {

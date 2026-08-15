@@ -58,6 +58,12 @@ public class BorrowerRiskService {
         return loanRepository.existsByMemberIdAndStatus(memberId, LoanStatus.DEFAULTED);
     }
 
+    public RiskTier getCurrentTier(UUID memberId) {
+        return borrowerRiskProfileRepository.findById(memberId)
+                .map(BorrowerRiskProfile::getCurrentRiskTier)
+                .orElse(RiskTier.LOW);
+    }
+
     // LoanStatus has no "resolved default" state, so a DEFAULTED loan is always an active
     // default - hasActiveDefault and defaultedLoans > 0 are equivalent today.
     private RiskTier computeRiskTier(boolean hasActiveDefault, int lateLoanPayments) {

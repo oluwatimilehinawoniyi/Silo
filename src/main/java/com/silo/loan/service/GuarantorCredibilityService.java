@@ -49,6 +49,12 @@ public class GuarantorCredibilityService {
                 .orElse(true);
     }
 
+    public int getCurrentScore(UUID memberId) {
+        return guarantorCredibilityProfileRepository.findById(memberId)
+                .map(GuarantorCredibilityProfile::getCredibilityScore)
+                .orElse(STARTING_SCORE);
+    }
+
     private int computeScore(int loansWentBad) {
         return Math.max(0, STARTING_SCORE - loansWentBad * PENALTY_PER_BAD_LOAN);
     }
