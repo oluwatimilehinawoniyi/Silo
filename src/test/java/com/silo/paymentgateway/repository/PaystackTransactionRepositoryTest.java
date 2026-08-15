@@ -6,8 +6,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 
@@ -17,8 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Integration-level proof that the migration itself is correct: the unique constraint
  * on paystack_reference really exists in Postgres, and both lookup methods work against
- * the real table. Requires Docker running locally - Spring Boot's docker-compose support
- * starts the Postgres service declared in compose.yaml automatically.
+ * the real table.
  * <p>
  * member_id is left null here on purpose: it now carries a real FK to members, and this
  * test isn't concerned with member referential integrity, only the dedup constraint.
@@ -27,8 +30,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * is needed between runs.
  */
 @SpringBootTest
+@Testcontainers
 @Transactional
 class PaystackTransactionRepositoryTest {
+
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
     private PaystackTransactionRepository repository;
