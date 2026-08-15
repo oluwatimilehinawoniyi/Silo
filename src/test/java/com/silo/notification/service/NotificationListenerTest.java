@@ -6,6 +6,7 @@ import com.silo.loan.event.GuarantorInvitedEvent;
 import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanApprovedEvent;
 import com.silo.loan.event.LoanDefaultedEvent;
+import com.silo.member.event.MemberRegisteredEvent;
 import com.silo.repayment.event.RepaymentMadeEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -96,5 +97,15 @@ class NotificationListenerTest {
 
         verify(notificationService).notify(eq(officerOne), eq("OfficerApplicationSubmittedEvent"), any(), any());
         verify(notificationService).notify(eq(officerTwo), eq("OfficerApplicationSubmittedEvent"), any(), any());
+    }
+
+    @Test
+    @DisplayName("onMemberRegistered notifies the new member")
+    void onMemberRegistered_notifiesNewMember() {
+        MemberRegisteredEvent event = new MemberRegisteredEvent(MEMBER_ID);
+
+        listener.onMemberRegistered(event);
+
+        verify(notificationService).notify(eq(MEMBER_ID), eq("MemberRegisteredEvent"), any(), any());
     }
 }

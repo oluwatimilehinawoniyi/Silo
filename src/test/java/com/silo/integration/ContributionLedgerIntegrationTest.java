@@ -67,10 +67,17 @@ class ContributionLedgerIntegrationTest {
                 .kycStatus(KYCStatus.VERIFIED)
                 .status(MemberStatus.ACTIVE)
                 .build());
+        Member officer = memberRepository.save(Member.builder()
+                .fullName("Bola Officer")
+                .email("bola.officer@example.com")
+                .phoneNumber("08010000001")
+                .kycStatus(KYCStatus.VERIFIED)
+                .status(MemberStatus.ACTIVE)
+                .build());
 
         BigDecimal amount = new BigDecimal("5000.00");
         contributionService.recordManualContribution(
-                new ContributionRequest(member.getId(), amount, "cash-receipt-001"), member.getId());
+                new ContributionRequest(member.getId(), amount, "cash-receipt-001"), officer.getId());
 
         LedgerAccount cash = ledgerAccountRepository.findByCode("1000").orElseThrow();
         LedgerAccount equity = ledgerAccountRepository.findByCode("3000").orElseThrow();

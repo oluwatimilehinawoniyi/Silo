@@ -3,6 +3,7 @@ package com.silo.member.service;
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.DuplicateResourceException;
 import com.silo.common.exception.ResourceNotFoundException;
+import com.silo.common.storage.DocumentStorage;
 import com.silo.member.dto.MemberKycUpdateRequest;
 import com.silo.member.dto.MemberProfileUpdateRequest;
 import com.silo.member.dto.MemberRequest;
@@ -11,10 +12,15 @@ import com.silo.member.dto.MemberStatusUpdateRequest;
 import com.silo.member.entity.Member;
 import com.silo.member.enums.KYCStatus;
 import com.silo.member.enums.MemberStatus;
+import com.silo.member.event.MemberRegisteredEvent;
 import com.silo.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -22,7 +28,10 @@ import java.util.UUID;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final DocumentStorage documentStorage;
+    private final ApplicationEventPublisher eventPublisher;
 
+    @Transactional
     public MemberResponse createMember(MemberRequest request) {
 
         boolean emailExists =
@@ -44,6 +53,9 @@ public class MemberService {
                 .build();
 
         newMember = memberRepository.save(newMember);
+
+        eventPublisher.publishEvent(new MemberRegisteredEvent(newMember.getId()));
+
         return toResponse(newMember);
     }
 
@@ -99,6 +111,22 @@ public class MemberService {
 
         member = memberRepository.save(member);
         return toResponse(member);
+    }
+
+    public MemberResponse uploadKycDocument(UUID id, MultipartFile file) {
+        Member member = findMemberOrThrow(id);
+
+        String url = documentStorage.upload(file);
+        member.setIdDocumentRef(url);
+
+        member = memberRepository.save(member);
+        return toResponse(member);
+    }
+
+    public List<MemberResponse> listPendingKyc() {
+        return memberRepository.findByKycStatus(KYCStatus.PENDING).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private Member findMemberOrThrow(UUID id) {

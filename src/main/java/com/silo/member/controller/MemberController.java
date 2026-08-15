@@ -22,8 +22,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -100,5 +103,27 @@ public class MemberController {
         return ResponseEntity.ok(
                 ApiResponse.success("KYC status updated successfully",
                         response));
+    }
+
+    @PostMapping("/{id}/kyc-document")
+    @Operation(
+            summary = "Upload a KYC document",
+            description = "Accepts an image or PDF, stores it, and sets it as the member's idDocumentRef")
+    public ResponseEntity<ApiResponse<MemberResponse>> uploadKycDocument(
+            @Parameter(description = "Member id") @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file) {
+        MemberResponse response = memberService.uploadKycDocument(id, file);
+        return ResponseEntity.ok(
+                ApiResponse.success("KYC document uploaded successfully",
+                        response));
+    }
+
+    @GetMapping("/pending-kyc")
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(
+            summary = "List members awaiting KYC review",
+            description = "Officer only")
+    public ResponseEntity<ApiResponse<List<MemberResponse>>> listPendingKyc() {
+        return ResponseEntity.ok(ApiResponse.success(memberService.listPendingKyc()));
     }
 }

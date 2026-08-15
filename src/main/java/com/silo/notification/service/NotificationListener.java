@@ -6,6 +6,7 @@ import com.silo.loan.event.GuarantorInvitedEvent;
 import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanApprovedEvent;
 import com.silo.loan.event.LoanDefaultedEvent;
+import com.silo.member.event.MemberRegisteredEvent;
 import com.silo.repayment.event.RepaymentMadeEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -72,6 +73,17 @@ public class NotificationListener {
                     "Loan " + event.getLoanId() + " defaulted; you've been assigned a liability of "
                             + allocation.getAmount() + ".");
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onMemberRegistered(MemberRegisteredEvent event) {
+        notificationService.notify(
+                event.getMemberId(),
+                MemberRegisteredEvent.class.getSimpleName(),
+                "Welcome to Silo - set your password",
+                "Your Silo member profile has been created. Use member id " + event.getMemberId()
+                        + " to set your password and log in.");
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

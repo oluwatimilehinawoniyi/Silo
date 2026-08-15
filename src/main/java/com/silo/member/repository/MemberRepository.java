@@ -18,4 +18,6 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
     Optional<Member> findByEmail(String email);
 
     List<Member> findByStatusAndKycStatus(MemberStatus status, KYCStatus kycStatus);
+
+    List<Member> findByKycStatus(KYCStatus kycStatus);
 }
