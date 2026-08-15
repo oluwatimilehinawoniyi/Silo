@@ -12,10 +12,7 @@ import java.util.UUID;
 
 /**
  * Maintains {@link GuarantorCredibilityProfile}, the projection the loan
- * approval workflow (T23) gates each guarantor on. loansWentBad stays 0
- * until T25 (default detection) exists and can report which guarantors
- * ended up with an assigned liability; recomputeAndSave is meant to be
- * called again from that point once it lands.
+ * approval workflow (T23) gates each guarantor on.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +44,20 @@ public class GuarantorCredibilityService {
         return guarantorCredibilityProfileRepository.findById(memberId)
                 .map(profile -> profile.getCredibilityScore() >= MINIMUM_ACCEPTABLE_SCORE)
                 .orElse(true);
+    }
+
+    @Transactional
+    public void recordLoanWentBad(UUID guarantorMemberId) {
+        GuarantorCredibilityProfile profile = guarantorCredibilityProfileRepository.findById(guarantorMemberId)
+                .orElseGet(() -> GuarantorCredibilityProfile.builder()
+                        .memberId(guarantorMemberId)
+                        .timesGuaranteed((int) loanGuarantorRepository.countByMemberIdAndStatus(
+                                guarantorMemberId, GuarantorStatus.ACCEPTED))
+                        .build());
+        profile.setLoansWentBad(profile.getLoansWentBad() + 1);
+        profile.setCredibilityScore(computeScore(profile.getLoansWentBad()));
+
+        guarantorCredibilityProfileRepository.save(profile);
     }
 
     public int getCurrentScore(UUID memberId) {

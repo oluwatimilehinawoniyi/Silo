@@ -20,4 +20,6 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
     boolean existsByMemberIdAndStatus(UUID memberId, LoanStatus status);
 
     List<UUID> findIdByMemberId(UUID memberId);
+
+    List<Loan> findByStatus(LoanStatus status);
 }
