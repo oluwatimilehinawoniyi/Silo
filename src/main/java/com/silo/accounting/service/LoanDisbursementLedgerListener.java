@@ -1,0 +1,62 @@
+package com.silo.accounting.service;
+
+import com.silo.accounting.entity.LedgerAccount;
+import com.silo.accounting.entity.LedgerEntry;
+import com.silo.accounting.enums.EntryType;
+import com.silo.accounting.repository.LedgerAccountRepository;
+import com.silo.accounting.repository.LedgerEntryRepository;
+import com.silo.loan.event.LoanApprovedEvent;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class LoanDisbursementLedgerListener {
+
+    private static final String LOANS_RECEIVABLE_CODE = "1100";
+    private static final String CASH_AND_BANK_CODE = "1000";
+
+    private final LedgerAccountRepository ledgerAccountRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onLoanApproved(LoanApprovedEvent event) {
+        if (!ledgerEntryRepository.findByTransactionId(event.getEventId()).isEmpty()) {
+            log.info("Ledger entries already posted for loan approval event {}, skipping", event.getEventId());
+            return;
+        }
+
+        LedgerAccount loansReceivable = requireAccount(LOANS_RECEIVABLE_CODE);
+        LedgerAccount cashAndBank = requireAccount(CASH_AND_BANK_CODE);
+
+        String description = "Disbursement of loan " + event.getLoanId() + " to member " + event.getMemberId();
+
+        ledgerEntryRepository.save(LedgerEntry.builder()
+                .transactionId(event.getEventId())
+                .account(loansReceivable)
+                .entryType(EntryType.DEBIT)
+                .amount(event.getPrincipalAmount())
+                .description(description)
+                .build());
+
+        ledgerEntryRepository.save(LedgerEntry.builder()
+                .transactionId(event.getEventId())
+                .account(cashAndBank)
+                .entryType(EntryType.CREDIT)
+                .amount(event.getPrincipalAmount())
+                .description(description)
+                .build());
+    }
+
+    private LedgerAccount requireAccount(String code) {
+        return ledgerAccountRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalStateException("Chart of accounts missing account code " + code));
+    }
+}
