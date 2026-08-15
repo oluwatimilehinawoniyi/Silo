@@ -150,4 +150,35 @@ class ContributionServiceTest {
                 new BigDecimal("15000.00"));
         assertThat(summary.contributionCount()).isEqualTo(3L);
     }
+
+    @Test
+    @DisplayName("recordPaystackContribution rejects a member that isn't ACTIVE and KYC_VERIFIED")
+    void recordPaystackContribution_throwsBusinessRuleViolation_whenMemberNotEligible() {
+        when(memberLookup.exists(MEMBER_ID)).thenReturn(true);
+        when(memberLookup.isActiveAndVerified(MEMBER_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> contributionService.recordPaystackContribution(MEMBER_ID, AMOUNT, REFERENCE))
+                .isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(contributionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("recordPaystackContribution saves a PAYSTACK-sourced contribution with no recordedBy and publishes the event")
+    void recordPaystackContribution_savesAndPublishesEvent_whenMemberEligible() {
+        when(memberLookup.exists(MEMBER_ID)).thenReturn(true);
+        when(memberLookup.isActiveAndVerified(MEMBER_ID)).thenReturn(true);
+        when(contributionRepository.save(any(Contribution.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        contributionService.recordPaystackContribution(MEMBER_ID, AMOUNT, REFERENCE);
+
+        ArgumentCaptor<Contribution> captor = ArgumentCaptor.forClass(Contribution.class);
+        verify(contributionRepository).save(captor.capture());
+        assertThat(captor.getValue().getSource()).isEqualTo(ContributionSource.PAYSTACK);
+        assertThat(captor.getValue().getRecordedBy()).isNull();
+
+        ArgumentCaptor<ContributionMadeEvent> eventCaptor = ArgumentCaptor.forClass(ContributionMadeEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getSource()).isEqualTo(ContributionSource.PAYSTACK);
+    }
 }

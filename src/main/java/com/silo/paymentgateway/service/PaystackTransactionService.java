@@ -1,5 +1,8 @@
 package com.silo.paymentgateway.service;
 
+import com.silo.contribution.ContributionRecorder;
+import com.silo.member.MemberLookup;
+import com.silo.member.MemberSummary;
 import com.silo.paymentgateway.entity.PaystackTransaction;
 import com.silo.paymentgateway.entity.PaystackTransactionStatus;
 import com.silo.paymentgateway.repository.PaystackTransactionRepository;
@@ -21,6 +24,8 @@ import java.util.UUID;
 public class PaystackTransactionService {
 
     private final PaystackTransactionRepository repository;
+    private final MemberLookup memberLookup;
+    private final ContributionRecorder contributionRecorder;
 
 
     @Transactional
@@ -61,5 +66,38 @@ public class PaystackTransactionService {
     public void markFailed(UUID transactionId) {
         repository.findById(transactionId)
                 .ifPresent(transaction -> transaction.setStatus(PaystackTransactionStatus.FAILED));
+    }
+
+    /**
+     * The shared core of "a Paystack payment was verified" - used by both the webhook
+     * receiver and the reconciliation sweep. Resolves the paying member, records the
+     * dedup row if new, then asks Contribution to record it. Returns true only when
+     * this call newly recorded a contribution (false for duplicates, unknown members,
+     * or a downstream failure).
+     */
+    @Transactional
+    public boolean processVerifiedTransaction(String paystackReference, BigDecimal amount, String customerEmail) {
+        Optional<MemberSummary> member = memberLookup.findByEmail(customerEmail);
+        if (member.isEmpty()) {
+            log.warn("Cannot attribute Paystack payment, reference={}, no member with email {}",
+                    paystackReference, customerEmail);
+            return false;
+        }
+
+        Optional<PaystackTransaction> transaction = recordIfNew(paystackReference, amount, member.get().id());
+        if (transaction.isEmpty()) {
+            return false;
+        }
+
+        try {
+            contributionRecorder.recordPaystackContribution(member.get().id(), amount, paystackReference);
+            markProcessed(transaction.get().getId());
+            return true;
+        } catch (RuntimeException ex) {
+            log.error("Failed to record contribution for Paystack reference={}: {}",
+                    paystackReference, ex.getMessage());
+            markFailed(transaction.get().getId());
+            return false;
+        }
     }
 }
