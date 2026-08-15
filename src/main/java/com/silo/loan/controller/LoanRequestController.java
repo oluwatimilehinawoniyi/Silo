@@ -2,9 +2,12 @@ package com.silo.loan.controller;
 
 import com.silo.common.response.ApiResponse;
 import com.silo.loan.dto.AddGuarantorRequest;
+import com.silo.loan.dto.LoanApprovalRequest;
 import com.silo.loan.dto.LoanGuarantorResponse;
 import com.silo.loan.dto.LoanRequestResponse;
 import com.silo.loan.dto.LoanRequestSubmitRequest;
+import com.silo.loan.dto.LoanResponse;
+import com.silo.loan.service.LoanApprovalService;
 import com.silo.loan.service.LoanGuarantorService;
 import com.silo.loan.service.LoanRequestService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +34,7 @@ public class LoanRequestController {
 
     private final LoanRequestService loanRequestService;
     private final LoanGuarantorService loanGuarantorService;
+    private final LoanApprovalService loanApprovalService;
 
     @PostMapping
     @Operation(
@@ -54,5 +59,28 @@ public class LoanRequestController {
         UUID memberId = UUID.fromString(authentication.getName());
         LoanGuarantorResponse response = loanGuarantorService.addGuarantor(memberId, id, request);
         return ResponseEntity.ok(ApiResponse.success("Guarantor invited successfully", response));
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(
+            summary = "Approve a loan request",
+            description = "Officer only. Requires at least one ACCEPTED guarantor, no active borrower default, "
+                    + "and each guarantor meeting the minimum credibility score. Creates the Loan and its "
+                    + "installment schedule.")
+    public ResponseEntity<ApiResponse<LoanResponse>> approve(
+            @Parameter(description = "Loan request id") @PathVariable UUID id,
+            @Valid @RequestBody LoanApprovalRequest request) {
+        LoanResponse response = loanApprovalService.approve(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Loan request approved successfully", response));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(summary = "Reject a loan request", description = "Officer only.")
+    public ResponseEntity<ApiResponse<LoanRequestResponse>> reject(
+            @Parameter(description = "Loan request id") @PathVariable UUID id) {
+        LoanRequestResponse response = loanApprovalService.reject(id);
+        return ResponseEntity.ok(ApiResponse.success("Loan request rejected", response));
     }
 }

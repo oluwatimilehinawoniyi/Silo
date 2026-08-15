@@ -15,5 +15,7 @@ public interface LoanGuarantorRepository extends JpaRepository<LoanGuarantor, UU
 
     List<LoanGuarantor> findByLoanRequestId(UUID loanRequestId);
 
+    List<LoanGuarantor> findByLoanRequestIdAndStatus(UUID loanRequestId, GuarantorStatus status);
+
     long countByMemberIdAndStatus(UUID memberId, GuarantorStatus status);
 }
