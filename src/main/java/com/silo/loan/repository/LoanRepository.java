@@ -3,6 +3,8 @@ package com.silo.loan.repository;
 import com.silo.loan.entity.Loan;
 import com.silo.loan.enums.LoanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,7 +21,8 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
     boolean existsByMemberIdAndStatus(UUID memberId, LoanStatus status);
 
-    List<UUID> findIdByMemberId(UUID memberId);
+    @Query("select l.id from Loan l where l.memberId = :memberId")
+    List<UUID> findIdByMemberId(@Param("memberId") UUID memberId);
 
     List<Loan> findByStatus(LoanStatus status);
 }
