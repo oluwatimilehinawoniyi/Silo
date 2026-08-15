@@ -63,6 +63,7 @@ class LoanApprovalServiceTest {
     private static final UUID LOAN_REQUEST_ID = UUID.randomUUID();
     private static final UUID BORROWER_ID = UUID.randomUUID();
     private static final UUID GUARANTOR_ID = UUID.randomUUID();
+    private static final UUID OFFICER_ID = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
@@ -93,7 +94,7 @@ class LoanApprovalServiceTest {
         when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> loanApprovalService.approve(
-                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), OFFICER_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -105,7 +106,7 @@ class LoanApprovalServiceTest {
         when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(decided));
 
         assertThatThrownBy(() -> loanApprovalService.approve(
-                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), OFFICER_ID))
                 .isInstanceOf(BusinessRuleViolationException.class);
     }
 
@@ -117,7 +118,7 @@ class LoanApprovalServiceTest {
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> loanApprovalService.approve(
-                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), OFFICER_ID))
                 .isInstanceOf(BusinessRuleViolationException.class);
 
         verify(loanRepository, never()).save(any());
@@ -132,7 +133,7 @@ class LoanApprovalServiceTest {
         when(borrowerRiskService.hasActiveDefault(BORROWER_ID)).thenReturn(true);
 
         assertThatThrownBy(() -> loanApprovalService.approve(
-                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), OFFICER_ID))
                 .isInstanceOf(BusinessRuleViolationException.class);
 
         verify(loanRepository, never()).save(any());
@@ -148,7 +149,7 @@ class LoanApprovalServiceTest {
         when(guarantorCredibilityService.meetsMinimumCredibility(GUARANTOR_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> loanApprovalService.approve(
-                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), OFFICER_ID))
                 .isInstanceOf(BusinessRuleViolationException.class);
 
         verify(loanRepository, never()).save(any());
@@ -164,7 +165,19 @@ class LoanApprovalServiceTest {
         when(loanRepository.existsByMemberIdAndStatus(BORROWER_ID, LoanStatus.ACTIVE)).thenReturn(true);
 
         assertThatThrownBy(() -> loanApprovalService.approve(
-                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12)))
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), OFFICER_ID))
+                .isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(loanRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("approve rejects an officer approving their own loan request")
+    void approve_throwsBusinessRuleViolation_whenOfficerApprovesOwnRequest() {
+        when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(pendingRequest()));
+
+        assertThatThrownBy(() -> loanApprovalService.approve(
+                LOAN_REQUEST_ID, new LoanApprovalRequest(new BigDecimal("12.5"), 12), BORROWER_ID))
                 .isInstanceOf(BusinessRuleViolationException.class);
 
         verify(loanRepository, never()).save(any());
@@ -182,7 +195,7 @@ class LoanApprovalServiceTest {
         when(loanRequestRepository.save(any(LoanRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LoanApprovalRequest request = new LoanApprovalRequest(new BigDecimal("12.5"), 12);
-        LoanResponse response = loanApprovalService.approve(LOAN_REQUEST_ID, request);
+        LoanResponse response = loanApprovalService.approve(LOAN_REQUEST_ID, request, OFFICER_ID);
 
         assertThat(response.memberId()).isEqualTo(BORROWER_ID);
         assertThat(response.loanRequestId()).isEqualTo(LOAN_REQUEST_ID);
@@ -208,7 +221,7 @@ class LoanApprovalServiceTest {
     void reject_throwsResourceNotFound_whenRequestMissing() {
         when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> loanApprovalService.reject(LOAN_REQUEST_ID))
+        assertThatThrownBy(() -> loanApprovalService.reject(LOAN_REQUEST_ID, OFFICER_ID))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -219,8 +232,19 @@ class LoanApprovalServiceTest {
         decided.setStatus(LoanRequestStatus.REJECTED);
         when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(decided));
 
-        assertThatThrownBy(() -> loanApprovalService.reject(LOAN_REQUEST_ID))
+        assertThatThrownBy(() -> loanApprovalService.reject(LOAN_REQUEST_ID, OFFICER_ID))
                 .isInstanceOf(BusinessRuleViolationException.class);
+    }
+
+    @Test
+    @DisplayName("reject rejects an officer rejecting their own loan request")
+    void reject_throwsBusinessRuleViolation_whenOfficerRejectsOwnRequest() {
+        when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(pendingRequest()));
+
+        assertThatThrownBy(() -> loanApprovalService.reject(LOAN_REQUEST_ID, BORROWER_ID))
+                .isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(loanRequestRepository, never()).save(any());
     }
 
     @Test
@@ -229,7 +253,7 @@ class LoanApprovalServiceTest {
         when(loanRequestRepository.findById(LOAN_REQUEST_ID)).thenReturn(Optional.of(pendingRequest()));
         when(loanRequestRepository.save(any(LoanRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LoanRequestResponse response = loanApprovalService.reject(LOAN_REQUEST_ID);
+        LoanRequestResponse response = loanApprovalService.reject(LOAN_REQUEST_ID, OFFICER_ID);
 
         assertThat(response.status()).isEqualTo(LoanRequestStatus.REJECTED);
         verify(loanRepository, never()).save(any());

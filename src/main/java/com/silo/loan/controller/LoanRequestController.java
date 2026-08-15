@@ -70,8 +70,10 @@ public class LoanRequestController {
                     + "installment schedule.")
     public ResponseEntity<ApiResponse<LoanResponse>> approve(
             @Parameter(description = "Loan request id") @PathVariable UUID id,
-            @Valid @RequestBody LoanApprovalRequest request) {
-        LoanResponse response = loanApprovalService.approve(id, request);
+            @Valid @RequestBody LoanApprovalRequest request,
+            Authentication authentication) {
+        UUID officerId = UUID.fromString(authentication.getName());
+        LoanResponse response = loanApprovalService.approve(id, request, officerId);
         return ResponseEntity.ok(ApiResponse.success("Loan request approved successfully", response));
     }
 
@@ -79,8 +81,10 @@ public class LoanRequestController {
     @PreAuthorize("hasRole('OFFICER')")
     @Operation(summary = "Reject a loan request", description = "Officer only.")
     public ResponseEntity<ApiResponse<LoanRequestResponse>> reject(
-            @Parameter(description = "Loan request id") @PathVariable UUID id) {
-        LoanRequestResponse response = loanApprovalService.reject(id);
+            @Parameter(description = "Loan request id") @PathVariable UUID id,
+            Authentication authentication) {
+        UUID officerId = UUID.fromString(authentication.getName());
+        LoanRequestResponse response = loanApprovalService.reject(id, officerId);
         return ResponseEntity.ok(ApiResponse.success("Loan request rejected", response));
     }
 }

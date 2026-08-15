@@ -49,6 +49,18 @@ class ContributionServiceTest {
     private static final String REFERENCE = "cash-receipt-001";
 
     @Test
+    @DisplayName("recordManualContribution rejects an officer recording their own contribution")
+    void recordManualContribution_throwsBusinessRuleViolation_whenOfficerRecordsOwnContribution() {
+        assertThatThrownBy(
+                () -> contributionService.recordManualContribution(
+                        new ContributionRequest(OFFICER_ID, AMOUNT, REFERENCE), OFFICER_ID))
+                .isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(contributionRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     @DisplayName(
             "recordManualContribution rejects a memberId that doesn't exist")
     void recordManualContribution_throwsResourceNotFound_whenMemberDoesNotExist() {

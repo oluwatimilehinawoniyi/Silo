@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -75,8 +76,10 @@ public class MemberController {
             description = "Officer only")
     public ResponseEntity<ApiResponse<MemberResponse>> updateStatus(
             @Parameter(description = "Member id") @PathVariable UUID id,
-            @Valid @RequestBody MemberStatusUpdateRequest request) {
-        MemberResponse response = memberService.updateStatus(id, request);
+            @Valid @RequestBody MemberStatusUpdateRequest request,
+            Authentication authentication) {
+        UUID officerId = UUID.fromString(authentication.getName());
+        MemberResponse response = memberService.updateStatus(id, request, officerId);
         return ResponseEntity.ok(
                 ApiResponse.success("Member status updated successfully",
                         response));
@@ -89,9 +92,11 @@ public class MemberController {
             description = "Officer only")
     public ResponseEntity<ApiResponse<MemberResponse>> updateKycStatus(
             @Parameter(description = "Member id") @PathVariable UUID id,
-            @Valid @RequestBody MemberKycUpdateRequest request) {
+            @Valid @RequestBody MemberKycUpdateRequest request,
+            Authentication authentication) {
+        UUID officerId = UUID.fromString(authentication.getName());
         MemberResponse response =
-                memberService.updateKycStatus(id, request);
+                memberService.updateKycStatus(id, request, officerId);
         return ResponseEntity.ok(
                 ApiResponse.success("KYC status updated successfully",
                         response));

@@ -31,6 +31,9 @@ public class ContributionService implements ContributionRecorder {
     @Transactional
     public ContributionResponse recordManualContribution(
             ContributionRequest request, UUID recordedBy) {
+        if (request.memberId().equals(recordedBy)) {
+            throw new BusinessRuleViolationException("An officer cannot record their own contribution");
+        }
         assertEligible(request.memberId());
 
         Contribution contribution = Contribution.builder()
