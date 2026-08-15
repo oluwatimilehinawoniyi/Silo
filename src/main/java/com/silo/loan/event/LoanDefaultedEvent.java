@@ -11,15 +11,16 @@ public class LoanDefaultedEvent extends DomainEvent {
     private final UUID loanId;
     private final UUID memberId;
     private final BigDecimal outstandingBalance;
-    private final List<UUID> guarantorLiabilityIds;
+    private final List<GuarantorLiabilityAllocation> guarantorLiabilityAllocations;
 
     public LoanDefaultedEvent(
-            UUID loanId, UUID memberId, BigDecimal outstandingBalance, List<UUID> guarantorLiabilityIds) {
+            UUID loanId, UUID memberId, BigDecimal outstandingBalance,
+            List<GuarantorLiabilityAllocation> guarantorLiabilityAllocations) {
         super();
         this.loanId = loanId;
         this.memberId = memberId;
         this.outstandingBalance = outstandingBalance;
-        this.guarantorLiabilityIds = guarantorLiabilityIds;
+        this.guarantorLiabilityAllocations = guarantorLiabilityAllocations;
     }
 
     public UUID getLoanId() {
@@ -34,7 +35,7 @@ public class LoanDefaultedEvent extends DomainEvent {
         return outstandingBalance;
     }
 
-    public List<UUID> getGuarantorLiabilityIds() {
-        return guarantorLiabilityIds;
+    public List<GuarantorLiabilityAllocation> getGuarantorLiabilityAllocations() {
+        return guarantorLiabilityAllocations;
     }
 }

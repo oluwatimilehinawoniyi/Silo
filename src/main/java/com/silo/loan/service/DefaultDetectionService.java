@@ -8,6 +8,7 @@ import com.silo.loan.enums.GuarantorStatus;
 import com.silo.loan.enums.InstallmentStatus;
 import com.silo.loan.enums.LiabilityStatus;
 import com.silo.loan.enums.LoanStatus;
+import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanDefaultedEvent;
 import com.silo.loan.repository.GuarantorLiabilityRepository;
 import com.silo.loan.repository.LoanGuarantorRepository;
@@ -99,9 +100,13 @@ public class DefaultDetectionService {
         loan.setStatus(LoanStatus.DEFAULTED);
         loanRepository.save(loan);
 
+        List<GuarantorLiabilityAllocation> allocations = liabilities.stream()
+                .map(liability -> new GuarantorLiabilityAllocation(
+                        liability.getId(), liability.getGuarantorMemberId(), liability.getAmount()))
+                .toList();
+
         eventPublisher.publishEvent(new LoanDefaultedEvent(
-                loan.getId(), loan.getMemberId(), loan.getOutstandingBalance(),
-                liabilities.stream().map(GuarantorLiability::getId).toList()));
+                loan.getId(), loan.getMemberId(), loan.getOutstandingBalance(), allocations));
 
         borrowerRiskService.recomputeAndSave(loan.getMemberId());
         acceptedGuarantors.forEach(guarantor -> guarantorCredibilityService.recordLoanWentBad(guarantor.getMemberId()));
