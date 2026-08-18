@@ -1,7 +1,10 @@
 package com.silo.member.service;
 
 import com.silo.common.exception.BusinessRuleViolationException;
+import com.silo.common.ocr.TextExtractor;
 import com.silo.common.storage.DocumentStorage;
+import com.silo.member.dto.ExtractedKycFields;
+import com.silo.member.dto.KycDocumentUploadResponse;
 import com.silo.member.dto.MemberKycUpdateRequest;
 import com.silo.member.dto.MemberRequest;
 import com.silo.member.dto.MemberResponse;
@@ -40,6 +43,12 @@ class MemberServiceTest {
 
     @Mock
     private DocumentStorage documentStorage;
+
+    @Mock
+    private TextExtractor textExtractor;
+
+    @Mock
+    private KycFieldExtractor kycFieldExtractor;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -88,8 +97,8 @@ class MemberServiceTest {
     }
 
     @Test
-    @DisplayName("uploadKycDocument stores the file and sets idDocumentRef to the returned URL")
-    void uploadKycDocument_setsIdDocumentRef() {
+    @DisplayName("uploadKycDocument stores the file, sets idDocumentRef, and returns null extracted when OCR finds nothing")
+    void uploadKycDocument_setsIdDocumentRef_andReturnsNullExtracted_whenOcrFindsNothing() {
         Member member = Member.builder()
                 .id(MEMBER_ID).fullName("Chidi Eze").email("chidi@example.com").phoneNumber("08010000000")
                 .kycStatus(KYCStatus.PENDING).status(MemberStatus.ACTIVE).build();
@@ -97,10 +106,33 @@ class MemberServiceTest {
         when(memberRepository.save(any(Member.class))).thenAnswer(invocation -> invocation.getArgument(0));
         MockMultipartFile file = new MockMultipartFile("file", "id-card.jpg", "image/jpeg", new byte[]{1, 2, 3});
         when(documentStorage.upload(file)).thenReturn("https://res.cloudinary.com/silo/id-card.jpg");
+        when(textExtractor.extractText("https://res.cloudinary.com/silo/id-card.jpg")).thenReturn(Optional.empty());
 
-        MemberResponse response = memberService.uploadKycDocument(MEMBER_ID, file);
+        KycDocumentUploadResponse response = memberService.uploadKycDocument(MEMBER_ID, file);
 
-        assertThat(response.idDocumentRef()).isEqualTo("https://res.cloudinary.com/silo/id-card.jpg");
+        assertThat(response.member().idDocumentRef()).isEqualTo("https://res.cloudinary.com/silo/id-card.jpg");
+        assertThat(response.extracted()).isNull();
+    }
+
+    @Test
+    @DisplayName("uploadKycDocument returns the extracted fields when OCR and field parsing both succeed")
+    void uploadKycDocument_returnsExtractedFields_whenOcrSucceeds() {
+        Member member = Member.builder()
+                .id(MEMBER_ID).fullName("Chidi Eze").email("chidi@example.com").phoneNumber("08010000000")
+                .kycStatus(KYCStatus.PENDING).status(MemberStatus.ACTIVE).build();
+        when(memberRepository.findById(MEMBER_ID)).thenReturn(Optional.of(member));
+        when(memberRepository.save(any(Member.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        MockMultipartFile file = new MockMultipartFile("file", "id-card.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        when(documentStorage.upload(file)).thenReturn("https://res.cloudinary.com/silo/id-card.jpg");
+        when(textExtractor.extractText("https://res.cloudinary.com/silo/id-card.jpg"))
+                .thenReturn(Optional.of("FEDERAL REPUBLIC OF NIGERIA NATIONAL IDENTITY 12345678901"));
+        when(kycFieldExtractor.extract("FEDERAL REPUBLIC OF NIGERIA NATIONAL IDENTITY 12345678901"))
+                .thenReturn(Optional.of(new ExtractedKycFields("National ID", "12345678901", 0.8)));
+
+        KycDocumentUploadResponse response = memberService.uploadKycDocument(MEMBER_ID, file);
+
+        assertThat(response.extracted().idType()).isEqualTo("National ID");
+        assertThat(response.extracted().idNumber()).isEqualTo("12345678901");
     }
 
     @Test

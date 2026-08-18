@@ -1,6 +1,7 @@
 package com.silo.member.controller;
 
 import com.silo.common.response.ApiResponse;
+import com.silo.member.dto.KycDocumentUploadResponse;
 import com.silo.member.dto.MemberKycUpdateRequest;
 import com.silo.member.dto.MemberProfileUpdateRequest;
 import com.silo.member.dto.MemberRequest;
@@ -108,11 +109,14 @@ public class MemberController {
     @PostMapping("/{id}/kyc-document")
     @Operation(
             summary = "Upload a KYC document",
-            description = "Accepts an image or PDF, stores it, and sets it as the member's idDocumentRef")
-    public ResponseEntity<ApiResponse<MemberResponse>> uploadKycDocument(
+            description = "Accepts an image or PDF, stores it, sets it as the member's idDocumentRef, and "
+                    + "attempts OCR extraction of idType/idNumber for the frontend to offer as a pre-fill. "
+                    + "extracted is null if OCR found nothing usable - it never blocks the upload or changes "
+                    + "kycStatus by itself.")
+    public ResponseEntity<ApiResponse<KycDocumentUploadResponse>> uploadKycDocument(
             @Parameter(description = "Member id") @PathVariable UUID id,
             @RequestParam("file") MultipartFile file) {
-        MemberResponse response = memberService.uploadKycDocument(id, file);
+        KycDocumentUploadResponse response = memberService.uploadKycDocument(id, file);
         return ResponseEntity.ok(
                 ApiResponse.success("KYC document uploaded successfully",
                         response));
