@@ -36,6 +36,10 @@ public class PaystackTransaction {
     @JoinColumn(name = "member_id", nullable = false)
     private UUID memberId;
 
+    /** Reusable authorization Paystack returns on a card that supports future charges - null when absent. */
+    @Column(length = 120)
+    private String authorizationCode;
+
     @CreationTimestamp
     @Column( nullable = false, updatable = false)
     @Builder.Default
