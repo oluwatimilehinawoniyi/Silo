@@ -30,6 +30,12 @@ public class PaystackTransactionService {
 
     @Transactional
     public Optional<PaystackTransaction> recordIfNew(String paystackReference, BigDecimal amount, UUID memberId) {
+        return recordIfNew(paystackReference, amount, memberId, null);
+    }
+
+    @Transactional
+    public Optional<PaystackTransaction> recordIfNew(
+            String paystackReference, BigDecimal amount, UUID memberId, String authorizationCode) {
         if (repository.existsByPaystackReference(paystackReference)) {
             log.info("Ignoring duplicate Paystack webhook, reference={}", paystackReference);
             return Optional.empty();
@@ -39,6 +45,7 @@ public class PaystackTransactionService {
                 .paystackReference(paystackReference)
                 .amount(amount)
                 .memberId(memberId)
+                .authorizationCode(authorizationCode)
                 .status(PaystackTransactionStatus.RECEIVED)
                 .build();
 
@@ -77,6 +84,12 @@ public class PaystackTransactionService {
      */
     @Transactional
     public boolean processVerifiedTransaction(String paystackReference, BigDecimal amount, String customerEmail) {
+        return processVerifiedTransaction(paystackReference, amount, customerEmail, null);
+    }
+
+    @Transactional
+    public boolean processVerifiedTransaction(
+            String paystackReference, BigDecimal amount, String customerEmail, String authorizationCode) {
         Optional<MemberSummary> member = memberLookup.findByEmail(customerEmail);
         if (member.isEmpty()) {
             log.warn("Cannot attribute Paystack payment, reference={}, no member with email {}",
@@ -84,7 +97,8 @@ public class PaystackTransactionService {
             return false;
         }
 
-        Optional<PaystackTransaction> transaction = recordIfNew(paystackReference, amount, member.get().id());
+        Optional<PaystackTransaction> transaction =
+                recordIfNew(paystackReference, amount, member.get().id(), authorizationCode);
         if (transaction.isEmpty()) {
             return false;
         }

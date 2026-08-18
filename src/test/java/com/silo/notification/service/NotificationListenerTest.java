@@ -2,6 +2,7 @@ package com.silo.notification.service;
 
 import com.silo.auth.OfficerLookup;
 import com.silo.auth.event.OfficerApplicationSubmittedEvent;
+import com.silo.contribution.event.AutoDebitChargeFailedEvent;
 import com.silo.loan.event.GuarantorInvitedEvent;
 import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanApprovedEvent;
@@ -96,5 +97,16 @@ class NotificationListenerTest {
 
         verify(notificationService).notify(eq(officerOne), eq("OfficerApplicationSubmittedEvent"), any(), any());
         verify(notificationService).notify(eq(officerTwo), eq("OfficerApplicationSubmittedEvent"), any(), any());
+    }
+
+    @Test
+    @DisplayName("onAutoDebitChargeFailed notifies the member on every failure")
+    void onAutoDebitChargeFailed_notifiesMember() {
+        AutoDebitChargeFailedEvent event = new AutoDebitChargeFailedEvent(
+                UUID.randomUUID(), MEMBER_ID, new BigDecimal("2000"), "Insufficient funds", false);
+
+        listener.onAutoDebitChargeFailed(event);
+
+        verify(notificationService).notify(eq(MEMBER_ID), eq("AutoDebitChargeFailedEvent"), any(), any());
     }
 }

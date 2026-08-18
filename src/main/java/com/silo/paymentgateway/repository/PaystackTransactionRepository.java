@@ -11,4 +11,6 @@ public interface PaystackTransactionRepository extends JpaRepository<PaystackTra
     boolean existsByPaystackReference(String paystackReference);
 
     Optional<PaystackTransaction> findByPaystackReference(String paystackReference);
+
+    Optional<PaystackTransaction> findFirstByMemberIdAndAuthorizationCodeIsNotNullOrderByCreatedAtDesc(UUID memberId);
 }
