@@ -1,5 +1,6 @@
 package com.silo.auth.service;
 
+import com.silo.auth.OfficerLookup;
 import com.silo.auth.dto.OfficerApplicationResponse;
 import com.silo.auth.entity.Credential;
 import com.silo.auth.entity.OfficerApplication;
@@ -22,15 +23,26 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Elevating a member to OFFICER normally needs two distinct existing
+ * officers to approve - but that rule can't bootstrap a brand new
+ * deployment, where zero officers exist to approve anyone. The required
+ * approval count instead scales with how many officers currently exist
+ * (capped at 2): the very first applicant needs zero approvals since
+ * nobody could possibly give one, the second needs the lone officer's
+ * approval, and from the third applicant onward the real two-officer rule
+ * applies. No seed data or manual database step needed to go live.
+ */
 @Service
 @RequiredArgsConstructor
 public class OfficerApplicationService {
 
-    private static final int APPROVALS_REQUIRED = 2;
+    private static final int MAX_APPROVALS_REQUIRED = 2;
 
     private final OfficerApplicationRepository officerApplicationRepository;
     private final OfficerApplicationApprovalRepository approvalRepository;
     private final CredentialRepository credentialRepository;
+    private final OfficerLookup officerLookup;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -46,12 +58,20 @@ public class OfficerApplicationService {
             throw new DuplicateResourceException("This member already has a pending officer application");
         }
 
+        boolean noOfficersExistYet = officerLookup.findAllOfficerMemberIds().isEmpty();
+
         OfficerApplication application = officerApplicationRepository.save(OfficerApplication.builder()
                 .memberId(memberId)
-                .status(OfficerApplicationStatus.PENDING)
+                .status(noOfficersExistYet ? OfficerApplicationStatus.APPROVED : OfficerApplicationStatus.PENDING)
+                .decidedAt(noOfficersExistYet ? LocalDateTime.now() : null)
                 .build());
 
-        eventPublisher.publishEvent(new OfficerApplicationSubmittedEvent(application.getId(), memberId));
+        if (noOfficersExistYet) {
+            credential.setRole(Role.OFFICER);
+            credentialRepository.save(credential);
+        } else {
+            eventPublisher.publishEvent(new OfficerApplicationSubmittedEvent(application.getId(), memberId));
+        }
 
         return toResponse(application, memberId);
     }
@@ -70,7 +90,8 @@ public class OfficerApplicationService {
                 .build());
 
         long approvalCount = approvalRepository.countByApplicationId(applicationId);
-        if (approvalCount >= APPROVALS_REQUIRED) {
+        int approvalsRequired = Math.min(MAX_APPROVALS_REQUIRED, officerLookup.findAllOfficerMemberIds().size());
+        if (approvalCount >= approvalsRequired) {
             application.setStatus(OfficerApplicationStatus.APPROVED);
             application.setDecidedAt(LocalDateTime.now());
             officerApplicationRepository.save(application);
