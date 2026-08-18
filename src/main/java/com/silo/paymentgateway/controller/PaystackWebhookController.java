@@ -70,8 +70,12 @@ public class PaystackWebhookController {
             return ResponseEntity.ok().build();
         }
 
+        String authorizationCode = payload.data().authorization() != null
+                ? payload.data().authorization().authorizationCode()
+                : null;
+
         paystackTransactionService.processVerifiedTransaction(
-                payload.data().reference(), amountInNaira, customerEmail);
+                payload.data().reference(), amountInNaira, customerEmail, authorizationCode);
 
         return ResponseEntity.ok().build();
     }
