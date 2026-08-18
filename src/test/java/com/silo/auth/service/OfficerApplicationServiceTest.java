@@ -1,5 +1,7 @@
 package com.silo.auth.service;
 
+import com.silo.auth.OfficerLookup;
+import com.silo.auth.dto.OfficerApplicationResponse;
 import com.silo.auth.entity.Credential;
 import com.silo.auth.entity.OfficerApplication;
 import com.silo.auth.entity.OfficerApplicationStatus;
@@ -19,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +43,9 @@ class OfficerApplicationServiceTest {
     private CredentialRepository credentialRepository;
 
     @Mock
+    private OfficerLookup officerLookup;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private OfficerApplicationService service;
@@ -52,7 +58,7 @@ class OfficerApplicationServiceTest {
     @BeforeEach
     void setUp() {
         service = new OfficerApplicationService(
-                officerApplicationRepository, approvalRepository, credentialRepository, eventPublisher);
+                officerApplicationRepository, approvalRepository, credentialRepository, officerLookup, eventPublisher);
     }
 
     private Credential memberCredential() {
@@ -92,17 +98,38 @@ class OfficerApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("apply creates a PENDING application and publishes the submitted event")
-    void apply_createsApplication_whenEligible() {
+    @DisplayName("apply creates a PENDING application and publishes the submitted event, when officers already exist")
+    void apply_createsPendingApplication_whenOfficersAlreadyExist() {
         when(credentialRepository.findByMemberId(APPLICANT_ID)).thenReturn(Optional.of(memberCredential()));
         when(officerApplicationRepository.existsByMemberIdAndStatus(APPLICANT_ID, OfficerApplicationStatus.PENDING))
                 .thenReturn(false);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(OFFICER_ONE));
         when(officerApplicationRepository.save(any(OfficerApplication.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         service.apply(APPLICANT_ID);
 
         verify(eventPublisher).publishEvent(any(Object.class));
+        verify(credentialRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("apply auto-approves and elevates the applicant when no officers exist yet")
+    void apply_autoApprovesAndElevates_whenNoOfficersExistYet() {
+        Credential credential = memberCredential();
+        when(credentialRepository.findByMemberId(APPLICANT_ID)).thenReturn(Optional.of(credential));
+        when(officerApplicationRepository.existsByMemberIdAndStatus(APPLICANT_ID, OfficerApplicationStatus.PENDING))
+                .thenReturn(false);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of());
+        when(officerApplicationRepository.save(any(OfficerApplication.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        OfficerApplicationResponse response = service.apply(APPLICANT_ID);
+
+        assertThat(response.status()).isEqualTo(OfficerApplicationStatus.APPROVED);
+        assertThat(credential.getRole()).isEqualTo(Role.OFFICER);
+        verify(credentialRepository).save(credential);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
     @Test
@@ -136,11 +163,12 @@ class OfficerApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("approve records a first approval without elevating the applicant")
+    @DisplayName("approve records a first approval without elevating the applicant, when 2 officers already exist")
     void approve_firstApproval_doesNotElevate() {
         when(officerApplicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(pendingApplication()));
         when(approvalRepository.existsByApplicationIdAndOfficerId(APPLICATION_ID, OFFICER_ONE)).thenReturn(false);
         when(approvalRepository.countByApplicationId(APPLICATION_ID)).thenReturn(1L);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(OFFICER_ONE, OFFICER_TWO));
 
         service.approve(APPLICATION_ID, OFFICER_ONE);
 
@@ -154,6 +182,7 @@ class OfficerApplicationServiceTest {
         when(officerApplicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(pendingApplication()));
         when(approvalRepository.existsByApplicationIdAndOfficerId(APPLICATION_ID, OFFICER_TWO)).thenReturn(false);
         when(approvalRepository.countByApplicationId(APPLICATION_ID)).thenReturn(2L);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(OFFICER_ONE, OFFICER_TWO));
         when(credentialRepository.findByMemberId(APPLICANT_ID)).thenReturn(Optional.of(memberCredential()));
 
         service.approve(APPLICATION_ID, OFFICER_TWO);
@@ -165,6 +194,22 @@ class OfficerApplicationServiceTest {
         ArgumentCaptor<OfficerApplication> applicationCaptor = ArgumentCaptor.forClass(OfficerApplication.class);
         verify(officerApplicationRepository).save(applicationCaptor.capture());
         assertThat(applicationCaptor.getValue().getStatus()).isEqualTo(OfficerApplicationStatus.APPROVED);
+    }
+
+    @Test
+    @DisplayName("approve elevates with a single approval when only one officer currently exists")
+    void approve_elevatesWithSingleApproval_whenOnlyOneOfficerExists() {
+        when(officerApplicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(pendingApplication()));
+        when(approvalRepository.existsByApplicationIdAndOfficerId(APPLICATION_ID, OFFICER_ONE)).thenReturn(false);
+        when(approvalRepository.countByApplicationId(APPLICATION_ID)).thenReturn(1L);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(OFFICER_ONE));
+        when(credentialRepository.findByMemberId(APPLICANT_ID)).thenReturn(Optional.of(memberCredential()));
+
+        service.approve(APPLICATION_ID, OFFICER_ONE);
+
+        ArgumentCaptor<Credential> credentialCaptor = ArgumentCaptor.forClass(Credential.class);
+        verify(credentialRepository).save(credentialCaptor.capture());
+        assertThat(credentialCaptor.getValue().getRole()).isEqualTo(Role.OFFICER);
     }
 
     @Test

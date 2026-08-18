@@ -2,6 +2,7 @@ package com.silo.notification.service;
 
 import com.silo.auth.OfficerLookup;
 import com.silo.auth.event.OfficerApplicationSubmittedEvent;
+import com.silo.contribution.event.AutoDebitChargeFailedEvent;
 import com.silo.loan.event.GuarantorInvitedEvent;
 import com.silo.loan.event.GuarantorLiabilityAllocation;
 import com.silo.loan.event.LoanApprovedEvent;
@@ -97,5 +98,19 @@ public class NotificationListener {
                     "Member " + event.getApplicantMemberId() + " has applied to become an officer. "
                             + "Two distinct officer approvals are required.");
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onAutoDebitChargeFailed(AutoDebitChargeFailedEvent event) {
+        String subject = event.isMandateStopped()
+                ? "Auto-debit stopped after repeated failures"
+                : "Auto-debit payment failed";
+        String body = event.isMandateStopped()
+                ? "We couldn't charge your card for " + event.getAmount() + " (" + event.getReason() + "). "
+                        + "Auto-debit has been stopped - set it up again once you've resolved the issue with your card."
+                : "We couldn't charge your card for " + event.getAmount() + " (" + event.getReason() + "). "
+                        + "We'll try again next period.";
+        notificationService.notify(event.getMemberId(), AutoDebitChargeFailedEvent.class.getSimpleName(), subject, body);
     }
 }
