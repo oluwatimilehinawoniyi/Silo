@@ -83,7 +83,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex,
                                                                          HttpServletRequest request) {
         log.warn("Authentication failed for {}: {}", request.getRequestURI(), ex.getMessage());
-        return respond(HttpStatus.UNAUTHORIZED, "Authentication failed", request, List.of());
+        String message = ex.getMessage() != null ? ex.getMessage() : "Authentication failed";
+        return respond(HttpStatus.UNAUTHORIZED, message, request, List.of());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
