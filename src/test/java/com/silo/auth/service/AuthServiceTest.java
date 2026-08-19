@@ -88,16 +88,34 @@ class AuthServiceTest {
         when(memberLookup.exists(MEMBER_ID)).thenReturn(true);
         when(credentialRepository.existsByMemberId(MEMBER_ID)).thenReturn(false);
         when(passwordEncoder.encode(RAW_PASSWORD)).thenReturn(PASSWORD_HASH);
+        when(credentialRepository.save(any(Credential.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         authService.registerCredential(new RegisterCredentialRequest(MEMBER_ID, RAW_PASSWORD));
 
         ArgumentCaptor<Credential> captor = ArgumentCaptor.forClass(Credential.class);
-        verify(credentialRepository).save(captor.capture());
+        verify(credentialRepository, atLeastOnce()).save(captor.capture());
 
         Credential saved = captor.getValue();
         assertThat(saved.getMemberId()).isEqualTo(MEMBER_ID);
         assertThat(saved.getPasswordHash()).isEqualTo(PASSWORD_HASH);
         assertThat(saved.getRole()).isEqualTo(Role.MEMBER);
+    }
+
+    @Test
+    @DisplayName("registerCredential logs the member in immediately, same shape as login")
+    void registerCredential_returnsTokens_whenSuccessful() {
+        when(memberLookup.exists(MEMBER_ID)).thenReturn(true);
+        when(credentialRepository.existsByMemberId(MEMBER_ID)).thenReturn(false);
+        when(passwordEncoder.encode(RAW_PASSWORD)).thenReturn(PASSWORD_HASH);
+        when(credentialRepository.save(any(Credential.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtService.generateToken(MEMBER_ID, "MEMBER")).thenReturn("signed-jwt");
+
+        LoginResponse response = authService.registerCredential(new RegisterCredentialRequest(MEMBER_ID, RAW_PASSWORD));
+
+        assertThat(response.accessToken()).isEqualTo("signed-jwt");
+        assertThat(response.refreshToken()).isNotBlank();
+        assertThat(response.memberId()).isEqualTo(MEMBER_ID);
+        assertThat(response.role()).isEqualTo("MEMBER");
     }
 
     @Test
