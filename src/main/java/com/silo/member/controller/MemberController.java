@@ -7,6 +7,7 @@ import com.silo.member.dto.MemberProfileUpdateRequest;
 import com.silo.member.dto.MemberRequest;
 import com.silo.member.dto.MemberResponse;
 import com.silo.member.dto.MemberStatusUpdateRequest;
+import com.silo.member.enums.KYCStatus;
 import com.silo.member.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,6 +51,18 @@ public class MemberController {
         return ResponseEntity.ok(
                 ApiResponse.success("Member registered successfully",
                         response));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(
+            summary = "List/search members",
+            description = "Officer only. kycStatus filters exactly; search matches fullName/email, "
+                    + "case-insensitive substring. Either, both, or neither may be supplied.")
+    public ResponseEntity<ApiResponse<List<MemberResponse>>> search(
+            @RequestParam(required = false) KYCStatus kycStatus,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(ApiResponse.success(memberService.search(kycStatus, search)));
     }
 
     @GetMapping("/{id}")
