@@ -70,10 +70,13 @@ public class LoanRequestController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "View a loan request, including its guarantors")
+    @Operation(
+            summary = "View a loan request, including its guarantors",
+            description = "Restricted to the requesting member, an invited guarantor, or an officer.")
     public ResponseEntity<ApiResponse<LoanRequestDetailResponse>> getDetail(
-            @Parameter(description = "Loan request id") @PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(loanRequestService.getDetail(id)));
+            @Parameter(description = "Loan request id") @PathVariable UUID id,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(loanRequestService.getDetail(id, authentication)));
     }
 
     @PostMapping("/{id}/guarantors")

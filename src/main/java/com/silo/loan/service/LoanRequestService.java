@@ -15,6 +15,9 @@ import com.silo.loan.repository.LoanRequestRepository;
 import com.silo.member.MemberLookup;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,9 +64,20 @@ public class LoanRequestService {
                 .toList();
     }
 
-    public LoanRequestDetailResponse getDetail(UUID id) {
+    public LoanRequestDetailResponse getDetail(UUID id, Authentication authentication) {
         LoanRequest loanRequest = loanRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan request not found with id " + id));
+
+        UUID callerId = UUID.fromString(authentication.getName());
+        boolean isOfficer = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_OFFICER"::equals);
+        boolean isBorrower = loanRequest.getMemberId().equals(callerId);
+        boolean isGuarantor = loanGuarantorRepository.existsByLoanRequestIdAndMemberId(id, callerId);
+
+        if (!isOfficer && !isBorrower && !isGuarantor) {
+            throw new AccessDeniedException("Not authorized to view this loan request");
+        }
 
         List<LoanGuarantorResponse> guarantors = loanGuarantorRepository.findByLoanRequestId(id).stream()
                 .map(this::toGuarantorResponse)
