@@ -70,12 +70,30 @@ class ReportingQueryServiceTest {
     @DisplayName("getMemberSummary returns zeroed defaults for a member with no projection row yet")
     void getMemberSummary_returnsDefaults_whenNoRow() {
         when(memberSummaryRepository.findById(MEMBER_ID)).thenReturn(Optional.empty());
+        when(loanSummaryRepository.sumOutstandingBalanceByMemberIdAndStatus(MEMBER_ID, "ACTIVE"))
+                .thenReturn(BigDecimal.ZERO);
 
         MemberReportSummaryResponse summary = reportingQueryService.getMemberSummary(MEMBER_ID);
 
         assertThat(summary.memberId()).isEqualTo(MEMBER_ID);
         assertThat(summary.totalContributions()).isEqualTo(BigDecimal.ZERO);
         assertThat(summary.activeLoans()).isZero();
+        assertThat(summary.outstandingBalance()).isEqualTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("getMemberSummary includes the member's own outstanding balance")
+    void getMemberSummary_includesOutstandingBalance() {
+        ReportingMemberSummary summary = ReportingMemberSummary.builder()
+                .memberId(MEMBER_ID).totalContributions(new BigDecimal("5000.00"))
+                .activeLoans(1).totalRepayments(new BigDecimal("2000.00")).build();
+        when(memberSummaryRepository.findById(MEMBER_ID)).thenReturn(Optional.of(summary));
+        when(loanSummaryRepository.sumOutstandingBalanceByMemberIdAndStatus(MEMBER_ID, "ACTIVE"))
+                .thenReturn(new BigDecimal("15000.00"));
+
+        MemberReportSummaryResponse response = reportingQueryService.getMemberSummary(MEMBER_ID);
+
+        assertThat(response.outstandingBalance()).isEqualTo(new BigDecimal("15000.00"));
     }
 
     @Test

@@ -16,4 +16,9 @@ public interface ReportingLoanSummaryRepository extends JpaRepository<ReportingL
 
     @Query("select coalesce(sum(l.outstandingBalance), 0) from ReportingLoanSummary l where l.status = :status")
     BigDecimal sumOutstandingBalanceByStatus(@Param("status") String status);
+
+    @Query("select coalesce(sum(l.outstandingBalance), 0) from ReportingLoanSummary l "
+            + "where l.memberId = :memberId and l.status = :status")
+    BigDecimal sumOutstandingBalanceByMemberIdAndStatus(
+            @Param("memberId") UUID memberId, @Param("status") String status);
 }

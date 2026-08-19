@@ -7,6 +7,7 @@ public record MemberReportSummaryResponse(
         UUID memberId,
         BigDecimal totalContributions,
         int activeLoans,
-        BigDecimal totalRepayments
+        BigDecimal totalRepayments,
+        BigDecimal outstandingBalance
 ) {
 }
