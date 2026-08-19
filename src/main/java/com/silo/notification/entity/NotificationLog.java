@@ -38,6 +38,9 @@ public class NotificationLog {
     @Column(nullable = false)
     private String eventType;
 
+    @Column(nullable = false)
+    private String subject;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private NotificationChannel channel;

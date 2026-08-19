@@ -42,6 +42,7 @@ public class NotificationService {
         notificationLogRepository.save(NotificationLog.builder()
                 .memberId(memberId)
                 .eventType(eventType)
+                .subject(subject)
                 .channel(NotificationChannel.EMAIL)
                 .status(status)
                 .sentAt(LocalDateTime.now())
@@ -71,6 +72,7 @@ public class NotificationService {
     private NotificationLogResponse toResponse(NotificationLog notificationLog) {
         return new NotificationLogResponse(
                 notificationLog.getId(), notificationLog.getMemberId(), notificationLog.getEventType(),
-                notificationLog.getChannel(), notificationLog.getStatus(), notificationLog.getSentAt());
+                notificationLog.getSubject(), notificationLog.getChannel(), notificationLog.getStatus(),
+                notificationLog.getSentAt());
     }
 }

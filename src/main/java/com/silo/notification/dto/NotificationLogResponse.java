@@ -10,6 +10,7 @@ public record NotificationLogResponse(
         UUID id,
         UUID memberId,
         String eventType,
+        String subject,
         NotificationChannel channel,
         NotificationStatus status,
         LocalDateTime sentAt

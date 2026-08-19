@@ -100,6 +100,7 @@ class NotificationServiceTest {
     void getHistory_mapsResults() {
         NotificationLog log = NotificationLog.builder()
                 .id(UUID.randomUUID()).memberId(MEMBER_ID).eventType("LoanApprovedEvent")
+                .subject("Your loan was approved")
                 .channel(com.silo.notification.enums.NotificationChannel.EMAIL)
                 .status(NotificationStatus.SENT).sentAt(LocalDateTime.now()).build();
         when(notificationLogRepository.findByMemberIdOrderBySentAtDesc(MEMBER_ID)).thenReturn(List.of(log));
