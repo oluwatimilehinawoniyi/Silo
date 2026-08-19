@@ -1,14 +1,16 @@
 package com.silo.notification.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Default EmailSender: logs instead of delivering. Stands in until a real
- * provider (SES, SendGrid, etc.) is wired up - swapping it out means
- * providing a different EmailSender bean, nothing else changes.
+ * Default EmailSender: logs instead of delivering. Active unless
+ * silo.email.provider is set to a real provider - swapping providers means
+ * changing that one property, nothing else.
  */
 @Component
+@ConditionalOnProperty(name = "silo.email.provider", havingValue = "log", matchIfMissing = true)
 @Slf4j
 public class LoggingEmailSender implements EmailSender {
 
