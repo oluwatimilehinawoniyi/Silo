@@ -73,6 +73,13 @@ public class ContributionService implements ContributionRecorder {
                 contribution.getAmount(), contribution.getSource()));
     }
 
+    public List<ContributionResponse> getAll() {
+        return contributionRepository.findAllByOrderByContributionDateDesc()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public List<ContributionResponse> getHistory(UUID memberId) {
         return contributionRepository.findByMemberIdOrderByContributionDateDesc(
                         memberId)

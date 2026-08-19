@@ -14,6 +14,8 @@ public interface ContributionRepository extends JpaRepository<Contribution, UUID
     List<Contribution> findByMemberIdOrderByContributionDateDesc(
             UUID memberId);
 
+    List<Contribution> findAllByOrderByContributionDateDesc();
+
     @Query("select coalesce(sum(c.amount), 0) from Contribution c where c.memberId = :memberId")
     BigDecimal sumAmountByMemberId(@Param("memberId") UUID memberId);
 
