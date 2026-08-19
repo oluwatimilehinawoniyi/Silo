@@ -44,60 +44,77 @@ class NotificationListenerTest {
     @DisplayName("onLoanApproved notifies the borrower")
     void onLoanApproved_notifiesBorrower() {
         LoanApprovedEvent event = new LoanApprovedEvent(
-                UUID.randomUUID(), UUID.randomUUID(), MEMBER_ID, new BigDecimal("5000"), LocalDateTime.now());
+                UUID.randomUUID(), UUID.randomUUID(), MEMBER_ID,
+                new BigDecimal("5000"), LocalDateTime.now());
 
         listener.onLoanApproved(event);
 
-        verify(notificationService).notify(eq(MEMBER_ID), eq("LoanApprovedEvent"), any(), any());
+        verify(notificationService).notify(eq(MEMBER_ID),
+                eq("LoanApprovedEvent"), any(), any());
     }
 
     @Test
     @DisplayName("onGuarantorInvited notifies the invited guarantor")
     void onGuarantorInvited_notifiesGuarantor() {
-        GuarantorInvitedEvent event = new GuarantorInvitedEvent(UUID.randomUUID(), UUID.randomUUID(), MEMBER_ID);
+        GuarantorInvitedEvent event =
+                new GuarantorInvitedEvent(UUID.randomUUID(),
+                        UUID.randomUUID(), MEMBER_ID);
 
         listener.onGuarantorInvited(event);
 
-        verify(notificationService).notify(eq(MEMBER_ID), eq("GuarantorInvitedEvent"), any(), any());
+        verify(notificationService).notify(eq(MEMBER_ID),
+                eq("GuarantorInvitedEvent"), any(), any());
     }
 
     @Test
     @DisplayName("onRepaymentMade notifies the payer")
     void onRepaymentMade_notifiesPayer() {
         RepaymentMadeEvent event = new RepaymentMadeEvent(
-                UUID.randomUUID(), UUID.randomUUID(), MEMBER_ID, new BigDecimal("500"), null);
+                UUID.randomUUID(), UUID.randomUUID(), MEMBER_ID,
+                new BigDecimal("500"), null);
 
         listener.onRepaymentMade(event);
 
-        verify(notificationService).notify(eq(MEMBER_ID), eq("RepaymentMadeEvent"), any(), any());
+        verify(notificationService).notify(eq(MEMBER_ID),
+                eq("RepaymentMadeEvent"), any(), any());
     }
 
     @Test
-    @DisplayName("onLoanDefaulted notifies the borrower and every assigned guarantor")
+    @DisplayName(
+            "onLoanDefaulted notifies the borrower and every assigned guarantor")
     void onLoanDefaulted_notifiesBorrowerAndGuarantors() {
         UUID guarantorId = UUID.randomUUID();
         LoanDefaultedEvent event = new LoanDefaultedEvent(
                 UUID.randomUUID(), MEMBER_ID, new BigDecimal("10000"),
-                List.of(new GuarantorLiabilityAllocation(UUID.randomUUID(), guarantorId, new BigDecimal("10000"))));
+                List.of(new GuarantorLiabilityAllocation(UUID.randomUUID(),
+                        guarantorId, new BigDecimal("10000"))));
 
         listener.onLoanDefaulted(event);
 
-        verify(notificationService).notify(eq(MEMBER_ID), eq("LoanDefaultedEvent"), any(), any());
-        verify(notificationService).notify(eq(guarantorId), eq("LoanDefaultedEvent"), any(), any());
+        verify(notificationService).notify(eq(MEMBER_ID),
+                eq("LoanDefaultedEvent"), any(), any());
+        verify(notificationService).notify(eq(guarantorId),
+                eq("LoanDefaultedEvent"), any(), any());
     }
 
     @Test
-    @DisplayName("onOfficerApplicationSubmitted notifies every current officer")
+    @DisplayName(
+            "onOfficerApplicationSubmitted notifies every current officer")
     void onOfficerApplicationSubmitted_notifiesEveryOfficer() {
         UUID officerOne = UUID.randomUUID();
         UUID officerTwo = UUID.randomUUID();
-        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(officerOne, officerTwo));
-        OfficerApplicationSubmittedEvent event = new OfficerApplicationSubmittedEvent(UUID.randomUUID(), MEMBER_ID);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(
+                List.of(officerOne, officerTwo));
+        OfficerApplicationSubmittedEvent event =
+                new OfficerApplicationSubmittedEvent(UUID.randomUUID(),
+                        MEMBER_ID);
 
         listener.onOfficerApplicationSubmitted(event);
 
-        verify(notificationService).notify(eq(officerOne), eq("OfficerApplicationSubmittedEvent"), any(), any());
-        verify(notificationService).notify(eq(officerTwo), eq("OfficerApplicationSubmittedEvent"), any(), any());
+        verify(notificationService).notify(eq(officerOne),
+                eq("OfficerApplicationSubmittedEvent"), any(), any());
+        verify(notificationService).notify(eq(officerTwo),
+                eq("OfficerApplicationSubmittedEvent"), any(), any());
     }
 
     @Test
@@ -107,14 +124,21 @@ class NotificationListenerTest {
 
         listener.onMemberRegistered(event);
 
-        verify(notificationService).notify(eq(MEMBER_ID), eq("MemberRegisteredEvent"), any(), any());
-    @DisplayName("onAutoDebitChargeFailed notifies the member on every failure")
+        verify(notificationService).notify(eq(MEMBER_ID),
+                eq("MemberRegisteredEvent"), any(), any());
+    }
+
+    @Test
+    @DisplayName(
+            "onAutoDebitChargeFailed notifies the member on every failure")
     void onAutoDebitChargeFailed_notifiesMember() {
         AutoDebitChargeFailedEvent event = new AutoDebitChargeFailedEvent(
-                UUID.randomUUID(), MEMBER_ID, new BigDecimal("2000"), "Insufficient funds", false);
+                UUID.randomUUID(), MEMBER_ID, new BigDecimal("2000"),
+                "Insufficient funds", false);
 
         listener.onAutoDebitChargeFailed(event);
 
-        verify(notificationService).notify(eq(MEMBER_ID), eq("AutoDebitChargeFailedEvent"), any(), any());
+        verify(notificationService).notify(eq(MEMBER_ID),
+                eq("AutoDebitChargeFailedEvent"), any(), any());
     }
 }
