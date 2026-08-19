@@ -10,6 +10,7 @@ import com.silo.loan.repository.LoanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -23,7 +24,17 @@ public class LoanQueryService {
         Loan loan = loanRepository.findById(loanId)
                 .orElseThrow(() -> new ResourceNotFoundException("Loan not found with id " + loanId));
 
-        var installments = loanInstallmentRepository.findByLoanIdOrderByInstallmentNumberAsc(loanId)
+        return toDetailResponse(loan);
+    }
+
+    public List<LoanDetailResponse> getLoansForMember(UUID memberId) {
+        return loanRepository.findByMemberId(memberId).stream()
+                .map(this::toDetailResponse)
+                .toList();
+    }
+
+    private LoanDetailResponse toDetailResponse(Loan loan) {
+        var installments = loanInstallmentRepository.findByLoanIdOrderByInstallmentNumberAsc(loan.getId())
                 .stream()
                 .map(this::toInstallmentResponse)
                 .toList();
