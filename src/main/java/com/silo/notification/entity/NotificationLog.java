@@ -51,4 +51,6 @@ public class NotificationLog {
 
     @Column(nullable = false)
     private LocalDateTime sentAt;
+
+    private LocalDateTime readAt;
 }

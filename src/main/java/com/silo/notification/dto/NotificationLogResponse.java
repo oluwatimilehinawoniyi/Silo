@@ -13,6 +13,7 @@ public record NotificationLogResponse(
         String subject,
         NotificationChannel channel,
         NotificationStatus status,
-        LocalDateTime sentAt
+        LocalDateTime sentAt,
+        LocalDateTime readAt
 ) {
 }
