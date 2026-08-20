@@ -25,7 +25,7 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
 
     @Query("select m from Member m where "
             + "(:kycStatus is null or m.kycStatus = :kycStatus) and "
-            + "(:search is null or lower(m.fullName) like lower(concat('%', :search, '%')) "
-            + "or lower(m.email) like lower(concat('%', :search, '%')))")
+            + "(:search is null or lower(m.fullName) like lower(concat('%', cast(:search as string), '%')) "
+            + "or lower(m.email) like lower(concat('%', cast(:search as string), '%')))")
     List<Member> search(@Param("kycStatus") KYCStatus kycStatus, @Param("search") String search);
 }
