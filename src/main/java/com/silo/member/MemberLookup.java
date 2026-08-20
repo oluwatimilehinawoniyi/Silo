@@ -8,6 +8,8 @@ public interface MemberLookup {
 
     boolean exists(UUID memberId);
 
+    boolean isActive(UUID memberId);
+
     boolean isActiveAndVerified(UUID memberId);
 
     Optional<MemberSummary> findByEmail(String email);

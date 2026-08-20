@@ -14,6 +14,7 @@ import com.silo.auth.repository.OfficerApplicationRepository;
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.DuplicateResourceException;
 import com.silo.common.exception.ResourceNotFoundException;
+import com.silo.member.MemberLookup;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class OfficerApplicationService {
     private final OfficerApplicationApprovalRepository approvalRepository;
     private final CredentialRepository credentialRepository;
     private final OfficerLookup officerLookup;
+    private final MemberLookup memberLookup;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -59,6 +61,18 @@ public class OfficerApplicationService {
         }
 
         boolean noOfficersExistYet = officerLookup.findAllOfficerMemberIds().isEmpty();
+
+        // KYC verification itself requires an existing officer, so the very first officer can only be
+        // held to an ACTIVE-membership standard - everyone after that must be ACTIVE and KYC_VERIFIED.
+        boolean eligible = noOfficersExistYet
+                ? memberLookup.isActive(memberId)
+                : memberLookup.isActiveAndVerified(memberId);
+        if (!eligible) {
+            throw new BusinessRuleViolationException(
+                    noOfficersExistYet
+                            ? "Member must be ACTIVE to apply for officer status"
+                            : "Member must be ACTIVE and KYC_VERIFIED to apply for officer status");
+        }
 
         OfficerApplication application = officerApplicationRepository.save(OfficerApplication.builder()
                 .memberId(memberId)

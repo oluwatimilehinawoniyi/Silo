@@ -25,6 +25,13 @@ class MemberLookupService implements MemberLookup {
     }
 
     @Override
+    public boolean isActive(UUID memberId) {
+        return memberRepository.findById(memberId)
+                .map(member -> member.getStatus() == MemberStatus.ACTIVE)
+                .orElse(false);
+    }
+
+    @Override
     public boolean isActiveAndVerified(UUID memberId) {
         return memberRepository.findById(memberId)
                 .map(this::isActiveAndVerified)
