@@ -40,7 +40,7 @@ public class LoanRequestService {
         }
         if (!memberLookup.isActiveAndVerified(memberId)) {
             throw new BusinessRuleViolationException(
-                    "Member must be ACTIVE and KYC_VERIFIED to submit a loan request");
+                    "You need to complete KYC verification before you can submit a loan request");
         }
 
         LoanRequest loanRequest = LoanRequest.builder()

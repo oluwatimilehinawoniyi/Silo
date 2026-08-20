@@ -102,7 +102,7 @@ public class ContributionService implements ContributionRecorder {
         }
         if (!memberLookup.isActiveAndVerified(memberId)) {
             throw new BusinessRuleViolationException(
-                    "Member must be ACTIVE and KYC_VERIFIED to contribute");
+                    "This member needs to complete KYC verification before they can contribute");
         }
     }
 

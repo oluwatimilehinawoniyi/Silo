@@ -70,8 +70,8 @@ public class OfficerApplicationService {
         if (!eligible) {
             throw new BusinessRuleViolationException(
                     noOfficersExistYet
-                            ? "Member must be ACTIVE to apply for officer status"
-                            : "Member must be ACTIVE and KYC_VERIFIED to apply for officer status");
+                            ? "Your account must be active before you can apply for officer status"
+                            : "You need to complete KYC verification before you can apply for officer status");
         }
 
         OfficerApplication application = officerApplicationRepository.save(OfficerApplication.builder()

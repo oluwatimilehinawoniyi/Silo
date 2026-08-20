@@ -50,7 +50,8 @@ public class LoanGuarantorService {
             throw new ResourceNotFoundException("Member not found with id " + guarantorMemberId);
         }
         if (!memberLookup.isActiveAndVerified(guarantorMemberId)) {
-            throw new BusinessRuleViolationException("Guarantor must be ACTIVE and KYC_VERIFIED");
+            throw new BusinessRuleViolationException(
+                    "This guarantor needs to complete KYC verification before they can guarantee a loan");
         }
         if (loanGuarantorRepository.existsByLoanRequestIdAndMemberId(loanRequestId, guarantorMemberId)) {
             throw new DuplicateResourceException("This member has already been invited to guarantee this request");
