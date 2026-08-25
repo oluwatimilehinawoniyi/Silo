@@ -40,9 +40,12 @@ public class ReportingQueryService {
     }
 
     public MemberReportSummaryResponse getMemberSummary(UUID memberId) {
+        BigDecimal outstandingBalance =
+                loanSummaryRepository.sumOutstandingBalanceByMemberIdAndStatus(memberId, STATUS_ACTIVE);
         return memberSummaryRepository.findById(memberId)
-                .map(this::toMemberSummaryResponse)
-                .orElse(new MemberReportSummaryResponse(memberId, BigDecimal.ZERO, 0, BigDecimal.ZERO));
+                .map(summary -> toMemberSummaryResponse(summary, outstandingBalance))
+                .orElse(new MemberReportSummaryResponse(
+                        memberId, BigDecimal.ZERO, 0, BigDecimal.ZERO, outstandingBalance));
     }
 
     public List<TopContributorResponse> getTopContributors(int limit) {
@@ -52,11 +55,13 @@ public class ReportingQueryService {
                 .toList();
     }
 
-    private MemberReportSummaryResponse toMemberSummaryResponse(ReportingMemberSummary summary) {
+    private MemberReportSummaryResponse toMemberSummaryResponse(
+            ReportingMemberSummary summary, BigDecimal outstandingBalance) {
         return new MemberReportSummaryResponse(
                 summary.getMemberId(),
                 summary.getTotalContributions(),
                 summary.getActiveLoans(),
-                summary.getTotalRepayments());
+                summary.getTotalRepayments(),
+                outstandingBalance);
     }
 }

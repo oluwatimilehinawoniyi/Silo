@@ -24,5 +24,7 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
     @Query("select l.id from Loan l where l.memberId = :memberId")
     List<UUID> findIdByMemberId(@Param("memberId") UUID memberId);
 
+    List<Loan> findByMemberId(UUID memberId);
+
     List<Loan> findByStatus(LoanStatus status);
 }

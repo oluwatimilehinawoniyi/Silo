@@ -49,6 +49,15 @@ public class ContributionController {
                         response));
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(
+            summary = "List all contributions",
+            description = "Officer only. Newest first.")
+    public ResponseEntity<ApiResponse<List<ContributionResponse>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.success(contributionService.getAll()));
+    }
+
     @GetMapping("/member/{memberId}")
     @Operation(summary = "View a member's contribution history")
     public ResponseEntity<ApiResponse<List<ContributionResponse>>> getHistory(

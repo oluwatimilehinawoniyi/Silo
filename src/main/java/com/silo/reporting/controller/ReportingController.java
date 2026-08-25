@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,27 +33,35 @@ public class ReportingController {
     private final DashboardBroadcastService dashboardBroadcastService;
 
     @GetMapping("/dashboard")
-    @Operation(summary = "Active loans, total contributions, outstanding balance, and default rate")
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(
+            summary = "Active loans, total contributions, outstanding balance, and default rate",
+            description = "Officer only. Members see their own summary via /members/{id}/summary instead.")
     public ResponseEntity<ApiResponse<DashboardResponse>> getDashboard() {
         return ResponseEntity.ok(ApiResponse.success(reportingQueryService.getDashboard()));
     }
 
     @GetMapping("/members/{id}/summary")
-    @Operation(summary = "A member's contribution and loan summary")
+    @PreAuthorize("hasRole('OFFICER') or #id.toString() == authentication.name")
+    @Operation(
+            summary = "A member's contribution and loan summary",
+            description = "Restricted to the member themselves or an officer.")
     public ResponseEntity<ApiResponse<MemberReportSummaryResponse>> getMemberSummary(
             @Parameter(description = "Member id") @PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success(reportingQueryService.getMemberSummary(id)));
     }
 
     @GetMapping("/top-contributors")
-    @Operation(summary = "Members ranked by total contributions")
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(summary = "Members ranked by total contributions", description = "Officer only.")
     public ResponseEntity<ApiResponse<List<TopContributorResponse>>> getTopContributors(
             @RequestParam(defaultValue = "10") int limit) {
         return ResponseEntity.ok(ApiResponse.success(reportingQueryService.getTopContributors(limit)));
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @Operation(summary = "Server-Sent Events stream of live dashboard updates")
+    @PreAuthorize("hasRole('OFFICER')")
+    @Operation(summary = "Server-Sent Events stream of live dashboard updates", description = "Officer only.")
     public SseEmitter stream() {
         return dashboardBroadcastService.register();
     }

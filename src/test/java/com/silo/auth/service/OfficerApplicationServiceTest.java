@@ -12,6 +12,7 @@ import com.silo.auth.repository.OfficerApplicationRepository;
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.DuplicateResourceException;
 import com.silo.common.exception.ResourceNotFoundException;
+import com.silo.member.MemberLookup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,9 @@ class OfficerApplicationServiceTest {
     private OfficerLookup officerLookup;
 
     @Mock
+    private MemberLookup memberLookup;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private OfficerApplicationService service;
@@ -58,7 +62,8 @@ class OfficerApplicationServiceTest {
     @BeforeEach
     void setUp() {
         service = new OfficerApplicationService(
-                officerApplicationRepository, approvalRepository, credentialRepository, officerLookup, eventPublisher);
+                officerApplicationRepository, approvalRepository, credentialRepository, officerLookup,
+                memberLookup, eventPublisher);
     }
 
     private Credential memberCredential() {
@@ -104,6 +109,7 @@ class OfficerApplicationServiceTest {
         when(officerApplicationRepository.existsByMemberIdAndStatus(APPLICANT_ID, OfficerApplicationStatus.PENDING))
                 .thenReturn(false);
         when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(OFFICER_ONE));
+        when(memberLookup.isActiveAndVerified(APPLICANT_ID)).thenReturn(true);
         when(officerApplicationRepository.save(any(OfficerApplication.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -114,6 +120,20 @@ class OfficerApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("apply rejects a member who isn't ACTIVE and KYC_VERIFIED, when officers already exist")
+    void apply_throwsBusinessRuleViolation_whenNotEligibleAndOfficersExist() {
+        when(credentialRepository.findByMemberId(APPLICANT_ID)).thenReturn(Optional.of(memberCredential()));
+        when(officerApplicationRepository.existsByMemberIdAndStatus(APPLICANT_ID, OfficerApplicationStatus.PENDING))
+                .thenReturn(false);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of(OFFICER_ONE));
+        when(memberLookup.isActiveAndVerified(APPLICANT_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.apply(APPLICANT_ID)).isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(officerApplicationRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("apply auto-approves and elevates the applicant when no officers exist yet")
     void apply_autoApprovesAndElevates_whenNoOfficersExistYet() {
         Credential credential = memberCredential();
@@ -121,6 +141,7 @@ class OfficerApplicationServiceTest {
         when(officerApplicationRepository.existsByMemberIdAndStatus(APPLICANT_ID, OfficerApplicationStatus.PENDING))
                 .thenReturn(false);
         when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of());
+        when(memberLookup.isActive(APPLICANT_ID)).thenReturn(true);
         when(officerApplicationRepository.save(any(OfficerApplication.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -130,6 +151,20 @@ class OfficerApplicationServiceTest {
         assertThat(credential.getRole()).isEqualTo(Role.OFFICER);
         verify(credentialRepository).save(credential);
         verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    @DisplayName("apply rejects a non-ACTIVE member even when no officers exist yet")
+    void apply_throwsBusinessRuleViolation_whenNotActiveAndNoOfficersExistYet() {
+        when(credentialRepository.findByMemberId(APPLICANT_ID)).thenReturn(Optional.of(memberCredential()));
+        when(officerApplicationRepository.existsByMemberIdAndStatus(APPLICANT_ID, OfficerApplicationStatus.PENDING))
+                .thenReturn(false);
+        when(officerLookup.findAllOfficerMemberIds()).thenReturn(List.of());
+        when(memberLookup.isActive(APPLICANT_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.apply(APPLICANT_ID)).isInstanceOf(BusinessRuleViolationException.class);
+
+        verify(officerApplicationRepository, never()).save(any());
     }
 
     @Test

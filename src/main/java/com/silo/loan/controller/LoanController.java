@@ -8,11 +8,13 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +24,13 @@ import java.util.UUID;
 public class LoanController {
 
     private final LoanQueryService loanQueryService;
+
+    @GetMapping
+    @Operation(summary = "List the authenticated member's own loans")
+    public ResponseEntity<ApiResponse<List<LoanDetailResponse>>> getMyLoans(Authentication authentication) {
+        UUID memberId = UUID.fromString(authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success(loanQueryService.getLoansForMember(memberId)));
+    }
 
     @GetMapping("/{id}")
     @Operation(summary = "View a loan's status, installment schedule, and outstanding balance")

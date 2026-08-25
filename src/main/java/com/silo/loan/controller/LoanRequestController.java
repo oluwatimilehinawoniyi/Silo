@@ -4,9 +4,11 @@ import com.silo.common.response.ApiResponse;
 import com.silo.loan.dto.AddGuarantorRequest;
 import com.silo.loan.dto.LoanApprovalRequest;
 import com.silo.loan.dto.LoanGuarantorResponse;
+import com.silo.loan.dto.LoanRequestDetailResponse;
 import com.silo.loan.dto.LoanRequestResponse;
 import com.silo.loan.dto.LoanRequestSubmitRequest;
 import com.silo.loan.dto.LoanResponse;
+import com.silo.loan.enums.LoanRequestStatus;
 import com.silo.loan.service.LoanApprovalService;
 import com.silo.loan.service.LoanGuarantorService;
 import com.silo.loan.service.LoanRequestService;
@@ -18,12 +20,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -46,6 +51,32 @@ public class LoanRequestController {
         UUID memberId = UUID.fromString(authentication.getName());
         LoanRequestResponse response = loanRequestService.submit(memberId, request);
         return ResponseEntity.ok(ApiResponse.success("Loan request submitted successfully", response));
+    }
+
+    @GetMapping
+    @PreAuthorize("#mine == true or hasRole('OFFICER')")
+    @Operation(
+            summary = "List loan requests",
+            description = "status filters exactly. mine=true scopes to the authenticated member's own "
+                    + "requests; otherwise officer only, returning all requests. Newest first.")
+    public ResponseEntity<ApiResponse<List<LoanRequestResponse>>> search(
+            @RequestParam(required = false) LoanRequestStatus status,
+            @RequestParam(required = false, defaultValue = "false") Boolean mine,
+            Authentication authentication) {
+        UUID memberId = Boolean.TRUE.equals(mine)
+                ? UUID.fromString(authentication.getName())
+                : null;
+        return ResponseEntity.ok(ApiResponse.success(loanRequestService.search(memberId, status)));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(
+            summary = "View a loan request, including its guarantors",
+            description = "Restricted to the requesting member, an invited guarantor, or an officer.")
+    public ResponseEntity<ApiResponse<LoanRequestDetailResponse>> getDetail(
+            @Parameter(description = "Loan request id") @PathVariable UUID id,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(loanRequestService.getDetail(id, authentication)));
     }
 
     @PostMapping("/{id}/guarantors")

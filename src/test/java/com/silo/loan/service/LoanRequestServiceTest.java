@@ -2,11 +2,13 @@ package com.silo.loan.service;
 
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.ResourceNotFoundException;
+import com.silo.loan.dto.LoanRequestDetailResponse;
 import com.silo.loan.dto.LoanRequestResponse;
 import com.silo.loan.dto.LoanRequestSubmitRequest;
 import com.silo.loan.entity.LoanRequest;
 import com.silo.loan.enums.LoanRequestStatus;
 import com.silo.loan.event.LoanRequestedEvent;
+import com.silo.loan.repository.LoanGuarantorRepository;
 import com.silo.loan.repository.LoanRequestRepository;
 import com.silo.member.MemberLookup;
 import org.junit.jupiter.api.DisplayName;
@@ -17,8 +19,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +39,9 @@ class LoanRequestServiceTest {
 
     @Mock
     private LoanRequestRepository loanRequestRepository;
+
+    @Mock
+    private LoanGuarantorRepository loanGuarantorRepository;
 
     @Mock
     private MemberLookup memberLookup;
@@ -88,5 +99,74 @@ class LoanRequestServiceTest {
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().getMemberId()).isEqualTo(MEMBER_ID);
         assertThat(captor.getValue().getAmountRequested()).isEqualTo(AMOUNT);
+    }
+
+    @Test
+    @DisplayName("getDetail denies a member who is neither the borrower, a guarantor, nor an officer")
+    void getDetail_throwsAccessDenied_whenCallerHasNoRelationToRequest() {
+        UUID requestId = UUID.randomUUID();
+        UUID strangerId = UUID.randomUUID();
+        LoanRequest loanRequest = LoanRequest.builder().id(requestId).memberId(MEMBER_ID).build();
+        Authentication authentication = memberAuthentication(strangerId);
+
+        when(loanRequestRepository.findById(requestId)).thenReturn(Optional.of(loanRequest));
+        when(loanGuarantorRepository.existsByLoanRequestIdAndMemberId(requestId, strangerId)).thenReturn(false);
+
+        assertThatThrownBy(() -> loanRequestService.getDetail(requestId, authentication))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("getDetail allows the borrower")
+    void getDetail_allowsBorrower() {
+        UUID requestId = UUID.randomUUID();
+        LoanRequest loanRequest = LoanRequest.builder().id(requestId).memberId(MEMBER_ID).build();
+        Authentication authentication = memberAuthentication(MEMBER_ID);
+
+        when(loanRequestRepository.findById(requestId)).thenReturn(Optional.of(loanRequest));
+        when(loanGuarantorRepository.findByLoanRequestId(requestId)).thenReturn(List.of());
+
+        LoanRequestDetailResponse response = loanRequestService.getDetail(requestId, authentication);
+
+        assertThat(response.id()).isEqualTo(requestId);
+    }
+
+    @Test
+    @DisplayName("getDetail allows an invited guarantor")
+    void getDetail_allowsGuarantor() {
+        UUID requestId = UUID.randomUUID();
+        UUID guarantorId = UUID.randomUUID();
+        LoanRequest loanRequest = LoanRequest.builder().id(requestId).memberId(MEMBER_ID).build();
+        Authentication authentication = memberAuthentication(guarantorId);
+
+        when(loanRequestRepository.findById(requestId)).thenReturn(Optional.of(loanRequest));
+        when(loanGuarantorRepository.existsByLoanRequestIdAndMemberId(requestId, guarantorId)).thenReturn(true);
+        when(loanGuarantorRepository.findByLoanRequestId(requestId)).thenReturn(List.of());
+
+        LoanRequestDetailResponse response = loanRequestService.getDetail(requestId, authentication);
+
+        assertThat(response.id()).isEqualTo(requestId);
+    }
+
+    @Test
+    @DisplayName("getDetail allows an officer regardless of relation to the request")
+    void getDetail_allowsOfficer() {
+        UUID requestId = UUID.randomUUID();
+        UUID officerId = UUID.randomUUID();
+        LoanRequest loanRequest = LoanRequest.builder().id(requestId).memberId(MEMBER_ID).build();
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                officerId.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_OFFICER")));
+
+        when(loanRequestRepository.findById(requestId)).thenReturn(Optional.of(loanRequest));
+        when(loanGuarantorRepository.findByLoanRequestId(requestId)).thenReturn(List.of());
+
+        LoanRequestDetailResponse response = loanRequestService.getDetail(requestId, authentication);
+
+        assertThat(response.id()).isEqualTo(requestId);
+    }
+
+    private Authentication memberAuthentication(UUID memberId) {
+        return new UsernamePasswordAuthenticationToken(
+                memberId.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
     }
 }

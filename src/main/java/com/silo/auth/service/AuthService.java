@@ -40,7 +40,7 @@ public class AuthService {
         this.refreshExpirationDays = refreshExpirationDays;
     }
 
-    public void registerCredential(RegisterCredentialRequest request) {
+    public LoginResponse registerCredential(RegisterCredentialRequest request) {
         if (!memberLookup.exists(request.memberId())) {
             throw new ResourceNotFoundException(
                     "Member not found with id " + request.memberId());
@@ -57,7 +57,9 @@ public class AuthService {
                 .role(Role.MEMBER)
                 .build();
 
-        credentialRepository.save(credential);
+        credential = credentialRepository.save(credential);
+
+        return issueTokens(credential);
     }
 
     public LoginResponse login(LoginRequest request) {

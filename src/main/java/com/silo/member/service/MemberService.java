@@ -133,6 +133,12 @@ public class MemberService {
         return new KycDocumentUploadResponse(toResponse(member), extracted);
     }
 
+    public List<MemberResponse> search(KYCStatus kycStatus, String search) {
+        return memberRepository.search(kycStatus, search).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public List<MemberResponse> listPendingKyc() {
         return memberRepository.findByKycStatus(KYCStatus.PENDING).stream()
                 .map(this::toResponse)

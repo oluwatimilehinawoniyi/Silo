@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 
@@ -82,13 +83,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex,
                                                                          HttpServletRequest request) {
         log.warn("Authentication failed for {}: {}", request.getRequestURI(), ex.getMessage());
-        return respond(HttpStatus.UNAUTHORIZED, "Authentication failed", request, List.of());
+        String message = ex.getMessage() != null ? ex.getMessage() : "Authentication failed";
+        return respond(HttpStatus.UNAUTHORIZED, message, request, List.of());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Access denied for {}: {}", request.getRequestURI(), ex.getMessage());
         return respond(HttpStatus.FORBIDDEN, "Access denied", request, List.of());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex,
+                                                                  HttpServletRequest request) {
+        log.warn("No endpoint found for {}", request.getRequestURI());
+        return respond(HttpStatus.NOT_FOUND, "No endpoint found for this path", request, List.of());
     }
 
     @ExceptionHandler(Exception.class)

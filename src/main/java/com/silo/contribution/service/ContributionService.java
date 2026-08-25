@@ -73,6 +73,13 @@ public class ContributionService implements ContributionRecorder {
                 contribution.getAmount(), contribution.getSource()));
     }
 
+    public List<ContributionResponse> getAll() {
+        return contributionRepository.findAllByOrderByContributionDateDesc()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public List<ContributionResponse> getHistory(UUID memberId) {
         return contributionRepository.findByMemberIdOrderByContributionDateDesc(
                         memberId)
@@ -95,7 +102,7 @@ public class ContributionService implements ContributionRecorder {
         }
         if (!memberLookup.isActiveAndVerified(memberId)) {
             throw new BusinessRuleViolationException(
-                    "Member must be ACTIVE and KYC_VERIFIED to contribute");
+                    "This member needs to complete KYC verification before they can contribute");
         }
     }
 

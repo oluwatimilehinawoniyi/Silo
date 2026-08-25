@@ -101,11 +101,11 @@ public class NotificationListener {
         notificationService.notify(
                 event.getMemberId(),
                 MemberRegisteredEvent.class.getSimpleName(),
-                "Welcome to Silo - let's set your password",
+                "Welcome to Silo",
                 compose("Your Silo member profile has been created - welcome to the cooperative!\n\n"
-                        + "Your member ID is " + event.getMemberId() + ". You'll need it to set your password "
-                        + "and log in for the first time. Once you're in, take a moment to complete your KYC "
-                        + "details so you're ready to contribute and apply for loans.\n\n"
+                        + "Log in any time with the email and password you signed up with. Once you're in, "
+                        + "take a moment to complete your KYC details so you're ready to contribute and apply "
+                        + "for loans.\n\n"
                         + "If you weren't expecting this email, you can safely ignore it."));
     }
 

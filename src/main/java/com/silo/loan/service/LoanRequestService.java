@@ -2,18 +2,26 @@ package com.silo.loan.service;
 
 import com.silo.common.exception.BusinessRuleViolationException;
 import com.silo.common.exception.ResourceNotFoundException;
+import com.silo.loan.dto.LoanGuarantorResponse;
+import com.silo.loan.dto.LoanRequestDetailResponse;
 import com.silo.loan.dto.LoanRequestResponse;
 import com.silo.loan.dto.LoanRequestSubmitRequest;
+import com.silo.loan.entity.LoanGuarantor;
 import com.silo.loan.entity.LoanRequest;
 import com.silo.loan.enums.LoanRequestStatus;
 import com.silo.loan.event.LoanRequestedEvent;
+import com.silo.loan.repository.LoanGuarantorRepository;
 import com.silo.loan.repository.LoanRequestRepository;
 import com.silo.member.MemberLookup;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -21,6 +29,7 @@ import java.util.UUID;
 public class LoanRequestService {
 
     private final LoanRequestRepository loanRequestRepository;
+    private final LoanGuarantorRepository loanGuarantorRepository;
     private final MemberLookup memberLookup;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -31,7 +40,7 @@ public class LoanRequestService {
         }
         if (!memberLookup.isActiveAndVerified(memberId)) {
             throw new BusinessRuleViolationException(
-                    "Member must be ACTIVE and KYC_VERIFIED to submit a loan request");
+                    "You need to complete KYC verification before you can submit a loan request");
         }
 
         LoanRequest loanRequest = LoanRequest.builder()
@@ -47,6 +56,50 @@ public class LoanRequestService {
                 loanRequest.getId(), loanRequest.getMemberId(), loanRequest.getAmountRequested()));
 
         return toResponse(loanRequest);
+    }
+
+    public List<LoanRequestResponse> search(UUID memberId, LoanRequestStatus status) {
+        return loanRequestRepository.search(memberId, status).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public LoanRequestDetailResponse getDetail(UUID id, Authentication authentication) {
+        LoanRequest loanRequest = loanRequestRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Loan request not found with id " + id));
+
+        UUID callerId = UUID.fromString(authentication.getName());
+        boolean isOfficer = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_OFFICER"::equals);
+        boolean isBorrower = loanRequest.getMemberId().equals(callerId);
+        boolean isGuarantor = loanGuarantorRepository.existsByLoanRequestIdAndMemberId(id, callerId);
+
+        if (!isOfficer && !isBorrower && !isGuarantor) {
+            throw new AccessDeniedException("Not authorized to view this loan request");
+        }
+
+        List<LoanGuarantorResponse> guarantors = loanGuarantorRepository.findByLoanRequestId(id).stream()
+                .map(this::toGuarantorResponse)
+                .toList();
+
+        return new LoanRequestDetailResponse(
+                loanRequest.getId(),
+                loanRequest.getMemberId(),
+                loanRequest.getAmountRequested(),
+                loanRequest.getPurpose(),
+                loanRequest.getStatus(),
+                loanRequest.getSubmittedAt(),
+                guarantors);
+    }
+
+    private LoanGuarantorResponse toGuarantorResponse(LoanGuarantor guarantor) {
+        return new LoanGuarantorResponse(
+                guarantor.getId(),
+                guarantor.getLoanRequestId(),
+                guarantor.getMemberId(),
+                guarantor.getStatus(),
+                guarantor.getInvitedAt());
     }
 
     private LoanRequestResponse toResponse(LoanRequest loanRequest) {

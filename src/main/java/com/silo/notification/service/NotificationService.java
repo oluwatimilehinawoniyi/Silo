@@ -7,9 +7,11 @@ import com.silo.notification.entity.NotificationLog;
 import com.silo.notification.enums.NotificationChannel;
 import com.silo.notification.enums.NotificationStatus;
 import com.silo.notification.repository.NotificationLogRepository;
+import com.silo.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.support.RetryTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,7 @@ public class NotificationService {
         notificationLogRepository.save(NotificationLog.builder()
                 .memberId(memberId)
                 .eventType(eventType)
+                .subject(subject)
                 .channel(NotificationChannel.EMAIL)
                 .status(status)
                 .sentAt(LocalDateTime.now())
@@ -53,6 +56,28 @@ public class NotificationService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public NotificationLogResponse markAsRead(UUID notificationId, UUID callerId) {
+        NotificationLog notificationLog = notificationLogRepository.findById(notificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found with id " + notificationId));
+
+        if (!notificationLog.getMemberId().equals(callerId)) {
+            throw new AccessDeniedException("Not authorized to update this notification");
+        }
+
+        if (notificationLog.getReadAt() == null) {
+            notificationLog.setReadAt(LocalDateTime.now());
+            notificationLog = notificationLogRepository.save(notificationLog);
+        }
+
+        return toResponse(notificationLog);
+    }
+
+    @Transactional
+    public void markAllAsRead(UUID memberId) {
+        notificationLogRepository.markAllAsRead(memberId, LocalDateTime.now());
     }
 
     private NotificationStatus attemptSend(String toEmail, String subject, String body) {
@@ -71,6 +96,7 @@ public class NotificationService {
     private NotificationLogResponse toResponse(NotificationLog notificationLog) {
         return new NotificationLogResponse(
                 notificationLog.getId(), notificationLog.getMemberId(), notificationLog.getEventType(),
-                notificationLog.getChannel(), notificationLog.getStatus(), notificationLog.getSentAt());
+                notificationLog.getSubject(), notificationLog.getChannel(), notificationLog.getStatus(),
+                notificationLog.getSentAt(), notificationLog.getReadAt());
     }
 }

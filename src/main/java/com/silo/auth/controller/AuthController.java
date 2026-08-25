@@ -26,14 +26,16 @@ public class AuthController {
 
     @PostMapping("/register")
     @Operation(
-            summary = "Register credentials for an existing member",
-            description = "Sets a login password for a member that already has a profile")
-    public ResponseEntity<ApiResponse<Void>> register(
+            summary = "Register credentials for an existing member and log in",
+            description = "Sets a login password for a member that already has a profile, and immediately "
+                    + "returns an access + refresh token pair - same shape as /login, so the caller doesn't "
+                    + "need a separate login step right after registering")
+    public ResponseEntity<ApiResponse<LoginResponse>> register(
             @Valid @RequestBody RegisterCredentialRequest request) {
-        authService.registerCredential(request);
+        LoginResponse response = authService.registerCredential(request);
         return ResponseEntity.ok(
                 ApiResponse.success("Credentials registered successfully",
-                        null));
+                        response));
     }
 
     @PostMapping("/login")
