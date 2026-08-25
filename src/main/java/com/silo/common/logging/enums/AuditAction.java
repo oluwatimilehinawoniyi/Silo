@@ -1,0 +1,46 @@
+package com.silo.common.logging.enums;
+
+public enum AuditAction {
+
+    // Member
+    MEMBER_REGISTERED,
+    MEMBER_UPDATED,
+    MEMBER_STATUS_CHANGED,
+    MEMBER_KYC_APPROVED,
+    MEMBER_KYC_REJECTED,
+
+    // Authentication
+    LOGIN,
+    LOGOUT,
+
+    // Contributions
+    CONTRIBUTION_RECORDED,
+
+    // Loans
+    LOAN_REQUESTED,
+    LOAN_APPROVED,
+    LOAN_REJECTED,
+    LOAN_DISBURSED,
+    LOAN_DEFAULTED,
+
+    // Guarantors
+    GUARANTOR_INVITED,
+    GUARANTOR_ACCEPTED,
+    GUARANTOR_DECLINED,
+    GUARANTOR_LIABILITY_ASSIGNED,
+
+    // Repayments
+    REPAYMENT_RECORDED,
+    GUARANTOR_REPAYMENT_RECORDED,
+
+    // Payment Gateway
+    PAYSTACK_WEBHOOK_RECEIVED,
+    PAYSTACK_TRANSACTION_VERIFIED,
+    PAYSTACK_RECONCILIATION,
+
+    // Notifications
+    EMAIL_SENT,
+    EMAIL_FAILED
+
+}
+
